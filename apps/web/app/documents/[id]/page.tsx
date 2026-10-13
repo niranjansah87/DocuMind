@@ -83,7 +83,7 @@ export default function DocumentDetailPage() {
 
   const handleDownload = () => {
     if (!document) return;
-    window.open(`/api/v1/documents/${document.document_id}/download`, "_blank");
+    window.open(`http://localhost:8000/api/v1/documents/${document.document_id}/download`, "_blank");
   };
 
   if (loading) {
