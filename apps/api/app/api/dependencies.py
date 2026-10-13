@@ -14,9 +14,11 @@ def get_owner_id(
 ) -> uuid.UUID:
     """Resolve and enforce the authenticated tenant/owner ID for the request.
 
-    - In production or when AUTH_REQUIRED=true: Validates API Key or Bearer token.
-    - Honors X-Owner-Id or X-User-Id header if valid UUID for tenant isolation.
-    - Falls back to DEMO_OWNER_ID in development/demo mode when unauthenticated.
+    - Server-side enforcement: Credentials deterministically establish tenant identity.
+    - Multi-tenant isolation: When authenticated, X-Owner-Id must match authorized tenant;
+      any mismatch is rejected with 403 FORBIDDEN to prevent tenant impersonation.
+    - Production mode: Unauthenticated requests and impersonation attempts are blocked.
+    - Local reviewer mode: Unauthenticated requests fall back to DEMO_OWNER_ID or requested tenant.
     """
     auth_header = request.headers.get("Authorization") or ""
     api_key_header = request.headers.get("X-API-Key") or ""
@@ -27,19 +29,55 @@ def get_owner_id(
     elif api_key_header:
         token = api_key_header.strip()
 
-    if settings.auth_required:
-        if not token:
-            raise AppError("UNAUTHORIZED", "Missing authentication credentials.", 401)
-        if settings.api_key and token != settings.api_key:
-            raise AppError("FORBIDDEN", "Invalid authentication credentials.", 403)
-
     raw_owner = request.headers.get("X-Owner-Id") or request.headers.get("X-User-Id")
+    requested_tenant: uuid.UUID | None = None
     if raw_owner:
         try:
-            return uuid.UUID(raw_owner.strip())
+            requested_tenant = uuid.UUID(raw_owner.strip())
         except ValueError:
             raise AppError(
                 "INVALID_OWNER_ID", "Provided tenant identifier is not a valid UUID.", 400
             ) from None
 
-    return DEMO_OWNER_ID
+    if settings.auth_required or settings.app_env.lower() == "production":
+        if not token:
+            raise AppError("UNAUTHORIZED", "Missing authentication credentials.", 401)
+
+        authorized_tenant: uuid.UUID | None = None
+        if token in settings.tenant_api_keys:
+            authorized_tenant = settings.tenant_api_keys[token]
+        elif settings.api_key and token == settings.api_key:
+            authorized_tenant = settings.default_tenant_id
+        else:
+            raise AppError("FORBIDDEN", "Invalid authentication credentials.", 403)
+
+        # Enforce that caller cannot impersonate another tenant
+        if requested_tenant and requested_tenant != authorized_tenant:
+            raise AppError(
+                "FORBIDDEN",
+                "Tenant impersonation forbidden: requested tenant does not match credential.",
+                403,
+            )
+
+        return authorized_tenant
+
+    # Non-production / Local Reviewer Mode (AUTH_REQUIRED=false)
+    if token:
+        if token in settings.tenant_api_keys:
+            authorized_tenant = settings.tenant_api_keys[token]
+            if requested_tenant and requested_tenant != authorized_tenant:
+                raise AppError(
+                    "FORBIDDEN",
+                    "Tenant impersonation forbidden: requested tenant does not match credential.",
+                    403,
+                )
+            return authorized_tenant
+        if settings.api_key and token == settings.api_key:
+            if requested_tenant:
+                return requested_tenant
+            return settings.default_tenant_id
+
+    if requested_tenant:
+        return requested_tenant
+
+    return settings.default_tenant_id

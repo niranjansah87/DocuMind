@@ -5,110 +5,19 @@ import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Icon } from "@/components/icons";
-import { deleteDocument, getAppMeta, listDocuments, uploadDocument } from "@/lib/api";
-import type { AppMeta, DocumentItem } from "@/lib/types";
+import { deleteDocument, getAppMeta, getDocument, listDocuments, uploadDocument } from "@/lib/api";
+import type { AppMeta, DocumentDetail, DocumentItem } from "@/lib/types";
 
 export interface ExtendedDocumentItem extends DocumentItem {
   description?: string;
   tokens?: number;
 }
 
-// Seeded sample documents to match documind_documents_page.png mockup perfectly
-const MOCKUP_DOCS: ExtendedDocumentItem[] = [
-  {
-    document_id: "doc-1",
-    filename: "Customer Support Policy.pdf",
-    description: "Support policies and guidelines",
-    mime_type: "application/pdf",
-    byte_size: 2.4 * 1024 * 1024,
-    status: "ready",
-    page_count: 12,
-    created_at: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
-    tokens: 5842,
-  },
-  {
-    document_id: "doc-2",
-    filename: "Product Warranty Information.pdf",
-    description: "Warranty terms and conditions",
-    mime_type: "application/pdf",
-    byte_size: 1.8 * 1024 * 1024,
-    status: "ready",
-    page_count: 8,
-    created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    tokens: 4120,
-  },
-  {
-    document_id: "doc-3",
-    filename: "Pricing and Plans.txt",
-    description: "Plan details and pricing",
-    mime_type: "text/plain",
-    byte_size: 320 * 1024,
-    status: "ready",
-    page_count: 1,
-    created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-    tokens: 2890,
-  },
-  {
-    document_id: "doc-4",
-    filename: "Return and Refund Policy.pdf",
-    description: "Returns, refunds and eligibility",
-    mime_type: "application/pdf",
-    byte_size: 1.2 * 1024 * 1024,
-    status: "ready",
-    page_count: 6,
-    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    tokens: 3450,
-  },
-  {
-    document_id: "doc-5",
-    filename: "Terms of Service.txt",
-    description: "Platform terms and conditions",
-    mime_type: "text/plain",
-    byte_size: 450 * 1024,
-    status: "processing",
-    page_count: 1,
-    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    tokens: 3100,
-  },
-  {
-    document_id: "doc-6",
-    filename: "User Guide.pdf",
-    description: "Product user manual",
-    mime_type: "application/pdf",
-    byte_size: 3.1 * 1024 * 1024,
-    status: "failed",
-    page_count: 14,
-    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    tokens: 0,
-  },
-  {
-    document_id: "doc-7",
-    filename: "FAQ.txt",
-    description: "Frequently asked questions",
-    mime_type: "text/plain",
-    byte_size: 280 * 1024,
-    status: "ready",
-    page_count: 1,
-    created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    tokens: 4200,
-  },
-  {
-    document_id: "doc-8",
-    filename: "Shipping Policy.pdf",
-    description: "Shipping and delivery information",
-    mime_type: "application/pdf",
-    byte_size: 1.6 * 1024 * 1024,
-    status: "ready",
-    page_count: 7,
-    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    tokens: 3950,
-  },
-];
-
 export default function DocumentsPage() {
   const router = useRouter();
   const [documents, setDocuments] = useState<ExtendedDocumentItem[]>([]);
-  const [selectedDocId, setSelectedDocId] = useState<string>("doc-1");
+  const [selectedDocId, setSelectedDocId] = useState<string>("");
+  const [selectedDocDetail, setSelectedDocDetail] = useState<DocumentDetail | null>(null);
   const [filter, setFilter] = useState<"all" | "processing" | "completed" | "failed">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [meta, setMeta] = useState<AppMeta | null>(null);
@@ -122,23 +31,18 @@ export default function DocumentsPage() {
   const refresh = async () => {
     try {
       const realDocs = await listDocuments();
+      setDocuments(realDocs);
       if (realDocs.length > 0) {
-        // Merge real documents with the mockup list to preserve full fidelity
-        const merged: ExtendedDocumentItem[] = [...realDocs];
-        for (const m of MOCKUP_DOCS) {
-          if (!merged.some((r) => r.filename.toLowerCase() === m.filename.toLowerCase())) {
-            merged.push(m);
-          }
-        }
-        setDocuments(merged);
-        setSelectedDocId(merged[0].document_id);
+        setSelectedDocId((curr) => {
+          if (curr && realDocs.some((d) => d.document_id === curr)) return curr;
+          return realDocs[0].document_id;
+        });
       } else {
-        setDocuments(MOCKUP_DOCS);
-        setSelectedDocId(MOCKUP_DOCS[0].document_id);
+        setSelectedDocId("");
+        setSelectedDocDetail(null);
       }
-    } catch {
-      setDocuments(MOCKUP_DOCS);
-      setSelectedDocId(MOCKUP_DOCS[0].document_id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load documents.");
     }
   };
 
@@ -148,23 +52,13 @@ export default function DocumentsPage() {
       try {
         const realDocs = await listDocuments();
         if (!isMounted) return;
+        setDocuments(realDocs);
         if (realDocs.length > 0) {
-          const merged: ExtendedDocumentItem[] = [...realDocs];
-          for (const m of MOCKUP_DOCS) {
-            if (!merged.some((r) => r.filename.toLowerCase() === m.filename.toLowerCase())) {
-              merged.push(m);
-            }
-          }
-          setDocuments(merged);
-          setSelectedDocId(merged[0].document_id);
-        } else {
-          setDocuments(MOCKUP_DOCS);
-          setSelectedDocId(MOCKUP_DOCS[0].document_id);
+          setSelectedDocId(realDocs[0].document_id);
         }
-      } catch {
+      } catch (err) {
         if (!isMounted) return;
-        setDocuments(MOCKUP_DOCS);
-        setSelectedDocId(MOCKUP_DOCS[0].document_id);
+        setError(err instanceof Error ? err.message : "Failed to load documents.");
       }
 
       try {
@@ -179,6 +73,24 @@ export default function DocumentsPage() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!selectedDocId) {
+      setSelectedDocDetail(null);
+      return;
+    }
+    let isMounted = true;
+    getDocument(selectedDocId)
+      .then((detail) => {
+        if (isMounted) setSelectedDocDetail(detail);
+      })
+      .catch(() => {
+        if (isMounted) setSelectedDocDetail(null);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDocId]);
 
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -207,13 +119,12 @@ export default function DocumentsPage() {
   const handleDelete = async (doc: DocumentItem) => {
     if (!window.confirm(`Delete ${doc.filename}?`)) return;
     try {
-      if (!doc.document_id.startsWith("doc-")) {
-        await deleteDocument(doc.document_id);
-      }
+      await deleteDocument(doc.document_id);
       setDocuments((curr) => curr.filter((d) => d.document_id !== doc.document_id));
       setNotice(`${doc.filename} deleted.`);
       if (selectedDocId === doc.document_id) {
         setSelectedDocId("");
+        setSelectedDocDetail(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed.");
@@ -390,70 +301,99 @@ export default function DocumentsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredDocs.map((doc, idx) => {
-                const isSelected = selectedDoc?.document_id === doc.document_id;
-                const isPdf = doc.filename.toLowerCase().endsWith(".pdf");
-                const chunkCount = doc.page_count ? doc.page_count * 2 : 12;
-
-                return (
-                  <motion.tr
-                    key={doc.document_id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.18, delay: Math.min(idx * 0.03, 0.3) }}
-                    className={`document-table-row ${isSelected ? "selected-row" : ""}`}
-                    onClick={() => setSelectedDocId(doc.document_id)}
-                  >
-                    <td className="td-checkbox" onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" aria-label={`Select ${doc.filename}`} />
-                    </td>
-                    <td className="td-name">
-                      <div className="td-doc-item">
-                        <div className={`table-file-icon ${isPdf ? "pdf" : "txt"}`}>
-                          <Icon name={isPdf ? "pdf" : "txt"} size={18} />
-                        </div>
-                        <div className="table-doc-info">
-                          <span className="table-filename">{doc.filename}</span>
-                          <span className="table-subtext">
-                            {doc.description ?? "Document knowledge source"}
-                          </span>
-                        </div>
+              {filteredDocs.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400">
+                        <Icon name="file" size={24} />
                       </div>
-                    </td>
-                    <td className="td-type">
-                      <span className={`table-type-pill ${isPdf ? "pdf" : "txt"}`}>
-                        {isPdf ? "PDF" : "TXT"}
-                      </span>
-                    </td>
-                    <td className="td-size">{formatFileSize(doc.byte_size)}</td>
-                    <td className="td-chunks">{doc.status === "failed" ? "—" : chunkCount}</td>
-                    <td className="td-status">
-                      <span className={`status-badge-cell ${doc.status === "ready" ? "completed" : doc.status}`}>
-                        <span className="status-dot" />
-                        <span>
-                          {doc.status === "ready"
-                            ? "Completed"
-                            : doc.status === "processing"
-                              ? "Processing"
-                              : "Failed"}
-                        </span>
-                      </span>
-                    </td>
-                    <td className="td-uploaded">{formatTimeAgo(doc.created_at)}</td>
-                    <td className="td-actions" onClick={(e) => e.stopPropagation()}>
-                      <div className="action-row-buttons">
+                      <h4 className="text-base font-semibold text-white">
+                        {documents.length === 0 ? "No documents uploaded yet" : "No matching documents"}
+                      </h4>
+                      <p className="text-xs text-slate-400 max-w-sm">
+                        {documents.length === 0
+                          ? "Upload a PDF or TXT document (up to 20 MB) to parse pages, generate embeddings, and query with grounded citations."
+                          : "Try adjusting your search query or filter."}
+                      </p>
+                      {documents.length === 0 && (
                         <button
-                          className="table-action-dots-btn"
-                          title="View options"
-                          onClick={() => router.push(`/documents/${doc.document_id}`)}
+                          className="mt-2 px-4 py-2 rounded-xl text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-all cursor-pointer inline-flex items-center gap-2"
+                          onClick={() => fileInputRef.current?.click()}
                         >
-                          <Icon name="more" size={16} />
+                          <Icon name="cloud-upload" size={14} />
+                          <span>Upload First Document</span>
                         </button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                );
-              })}
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredDocs.map((doc, idx) => {
+                  const isSelected = selectedDoc?.document_id === doc.document_id;
+                  const isPdf = doc.filename.toLowerCase().endsWith(".pdf");
+                  const chunkCount = doc.page_count ? doc.page_count * 2 : 1;
+
+                  return (
+                    <motion.tr
+                      key={doc.document_id}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.18, delay: Math.min(idx * 0.03, 0.3) }}
+                      className={`document-table-row ${isSelected ? "selected-row" : ""}`}
+                      onClick={() => setSelectedDocId(doc.document_id)}
+                    >
+                      <td className="td-checkbox" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" aria-label={`Select ${doc.filename}`} />
+                      </td>
+                      <td className="td-name">
+                        <div className="td-doc-item">
+                          <div className={`table-file-icon ${isPdf ? "pdf" : "txt"}`}>
+                            <Icon name={isPdf ? "pdf" : "txt"} size={18} />
+                          </div>
+                          <div className="table-doc-info">
+                            <span className="table-filename">{doc.filename}</span>
+                            <span className="table-subtext">
+                              {doc.description ?? "Document knowledge source"}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="td-type">
+                        <span className={`table-type-pill ${isPdf ? "pdf" : "txt"}`}>
+                          {isPdf ? "PDF" : "TXT"}
+                        </span>
+                      </td>
+                      <td className="td-size">{formatFileSize(doc.byte_size)}</td>
+                      <td className="td-chunks">{doc.status === "failed" ? "—" : chunkCount}</td>
+                      <td className="td-status">
+                        <span className={`status-badge-cell ${doc.status === "ready" ? "completed" : doc.status}`}>
+                          <span className="status-dot" />
+                          <span>
+                            {doc.status === "ready"
+                              ? "Completed"
+                              : doc.status === "processing"
+                                ? "Processing"
+                                : "Failed"}
+                          </span>
+                        </span>
+                      </td>
+                      <td className="td-uploaded">{formatTimeAgo(doc.created_at)}</td>
+                      <td className="td-actions" onClick={(e) => e.stopPropagation()}>
+                        <div className="action-row-buttons">
+                          <button
+                            className="table-action-dots-btn"
+                            title="View options"
+                            onClick={() => router.push(`/documents/${doc.document_id}`)}
+                          >
+                            <Icon name="more" size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
 
@@ -464,8 +404,7 @@ export default function DocumentsPage() {
                 <Icon name="chevron-left" size={15} />
               </button>
               <button className="pagination-page-btn active">1</button>
-              <button className="pagination-page-btn">2</button>
-              <button className="pagination-nav-btn">
+              <button className="pagination-nav-btn" disabled>
                 <Icon name="chevron-right" size={15} />
               </button>
             </div>
@@ -501,8 +440,8 @@ export default function DocumentsPage() {
           </div>
 
           <div className="drawer-header-card">
-            <div className="drawer-doc-icon-large red">
-              <Icon name="pdf" size={32} />
+            <div className={`drawer-doc-icon-large ${selectedDoc.filename.toLowerCase().endsWith(".pdf") ? "red" : "blue"}`}>
+              <Icon name={selectedDoc.filename.toLowerCase().endsWith(".pdf") ? "pdf" : "txt"} size={32} />
             </div>
             <h3 className="drawer-doc-title">{selectedDoc.filename}</h3>
             <p className="drawer-doc-meta">
@@ -514,8 +453,8 @@ export default function DocumentsPage() {
                 {selectedDoc.status === "ready" ? "Completed" : selectedDoc.status === "processing" ? "Processing" : "Failed"}
               </span>
               <span className="drawer-chunks-stat">
-                {selectedDoc.page_count ? selectedDoc.page_count * 2 : 24} chunks •{" "}
-                {selectedDoc.tokens ?? 5842} tokens
+                {selectedDocDetail?.chunk_count ?? (selectedDoc.page_count ? selectedDoc.page_count * 2 : 1)} chunks
+                {selectedDocDetail?.chunks ? ` • ${selectedDocDetail.chunks.reduce((sum, c) => sum + (c.token_count || 0), 0)} tokens` : ""}
               </span>
             </div>
           </div>
@@ -563,19 +502,43 @@ export default function DocumentsPage() {
                     </div>
                     <div className="drawer-kv-row">
                       <span className="kv-label">Upload date</span>
-                      <span className="kv-value">Oct 12, 2026, 10:24 AM</span>
+                      <span className="kv-value">
+                        {new Date(selectedDoc.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
                     </div>
                     <div className="drawer-kv-row">
                       <span className="kv-label">Processed at</span>
-                      <span className="kv-value">Oct 12, 2026, 10:25 AM</span>
+                      <span className="kv-value">
+                        {selectedDoc.status === "ready"
+                          ? new Date(selectedDoc.created_at).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "In progress"}
+                      </span>
                     </div>
                     <div className="drawer-kv-row">
                       <span className="kv-label">Total chunks</span>
-                      <span className="kv-value">{selectedDoc.page_count ? selectedDoc.page_count * 2 : 24}</span>
+                      <span className="kv-value">
+                        {selectedDocDetail?.chunk_count ?? (selectedDoc.page_count ? selectedDoc.page_count * 2 : 1)}
+                      </span>
                     </div>
                     <div className="drawer-kv-row">
                       <span className="kv-label">Total tokens</span>
-                      <span className="kv-value">{selectedDoc.tokens ?? 5842}</span>
+                      <span className="kv-value">
+                        {selectedDocDetail?.chunks
+                          ? selectedDocDetail.chunks.reduce((sum, c) => sum + (c.token_count || 0), 0)
+                          : "Indexed in database"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -587,27 +550,27 @@ export default function DocumentsPage() {
                     <div className="timeline-step done">
                       <Icon name="check-circle" size={17} className="timeline-icon green" />
                       <span className="timeline-text">File uploaded</span>
-                      <span className="timeline-timestamp">10:24 AM</span>
+                      <span className="timeline-timestamp">Completed</span>
                     </div>
                     <div className="timeline-step done">
                       <Icon name="check-circle" size={17} className="timeline-icon green" />
                       <span className="timeline-text">Text extracted</span>
-                      <span className="timeline-timestamp">10:24 AM</span>
+                      <span className="timeline-timestamp">Completed</span>
                     </div>
                     <div className="timeline-step done">
                       <Icon name="check-circle" size={17} className="timeline-icon green" />
                       <span className="timeline-text">Chunks created</span>
-                      <span className="timeline-timestamp">10:25 AM</span>
+                      <span className="timeline-timestamp">Completed</span>
                     </div>
                     <div className="timeline-step done">
                       <Icon name="check-circle" size={17} className="timeline-icon green" />
                       <span className="timeline-text">Embeddings generated</span>
-                      <span className="timeline-timestamp">10:25 AM</span>
+                      <span className="timeline-timestamp">Completed</span>
                     </div>
                     <div className="timeline-step done">
                       <Icon name="check-circle" size={17} className="timeline-icon green" />
                       <span className="timeline-text">Indexed in database</span>
-                      <span className="timeline-timestamp">10:25 AM</span>
+                      <span className="timeline-timestamp">Completed</span>
                     </div>
                   </div>
                 </div>
@@ -617,17 +580,29 @@ export default function DocumentsPage() {
             {activeDrawerTab === "chunks" && (
               <div className="drawer-section">
                 <h4 className="drawer-section-heading">Indexed Chunks</h4>
-                <p className="drawer-subcopy">Showing first 4 chunks indexed into pgvector:</p>
-                <div className="drawer-chunk-snippets">
-                  <div className="drawer-snippet-card">
-                    <strong>Chunk 1 • Page 1</strong>
-                    <p>Sample Customer Help Policy. Introduction and policy purpose for customer returns...</p>
-                  </div>
-                  <div className="drawer-snippet-card">
-                    <strong>Chunk 2 • Page 4</strong>
-                    <p>Returns and Refunds. Physical items may be returned within 30 days of delivery...</p>
-                  </div>
-                </div>
+                {selectedDocDetail?.chunks && selectedDocDetail.chunks.length > 0 ? (
+                  <>
+                    <p className="drawer-subcopy">
+                      Showing {Math.min(selectedDocDetail.chunks.length, 4)} of {selectedDocDetail.chunks.length} chunks indexed into pgvector:
+                    </p>
+                    <div className="drawer-chunk-snippets">
+                      {selectedDocDetail.chunks.slice(0, 4).map((chunk) => (
+                        <div key={chunk.chunk_id} className="drawer-snippet-card">
+                          <strong>
+                            Chunk {chunk.chunk_index + 1} • {chunk.section || `Page ${chunk.page_start ?? 1}`}
+                          </strong>
+                          <p>{chunk.text.slice(0, 220)}...</p>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="drawer-subcopy text-slate-400">
+                    {selectedDoc.status === "ready"
+                      ? "Loading chunk embeddings..."
+                      : "Chunks will appear here once document indexing completes."}
+                  </p>
+                )}
               </div>
             )}
 
@@ -658,9 +633,9 @@ export default function DocumentsPage() {
             </button>
             <button
               className="drawer-solid-chat-btn"
-              onClick={() => router.push(`/documents/${selectedDoc.document_id}`)}
+              onClick={() => router.push(`/?document=${selectedDoc.document_id}`)}
             >
-              <span>View in chat →</span>
+              <span>Ask in Chat →</span>
             </button>
           </div>
         </motion.aside>
@@ -669,3 +644,4 @@ export default function DocumentsPage() {
   </main>
 );
 }
+

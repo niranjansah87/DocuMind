@@ -277,24 +277,44 @@ export default function WorkspacePage() {
       {/* Top Header Bar matching Documind_workspace.png */}
       <header className="workspace-header">
         <div className="workspace-doc-info">
-          <div className="doc-icon-badge pdf">
-            <Icon name="pdf" size={20} />
+          <div className={`doc-icon-badge ${activeDoc?.mime_type === "application/pdf" ? "pdf" : "txt"}`}>
+            <Icon name={activeDoc?.mime_type === "application/pdf" ? "pdf" : "txt"} size={20} />
           </div>
           <div className="doc-meta-text">
-            <div className="doc-title-row">
-              <span className="doc-filename">
-                {activeDoc ? activeDoc.filename : "Customer Support Policy.pdf"}
-              </span>
-              <span className={`doc-status-pill ${activeDoc?.status ?? "ready"}`}>
-                {activeDoc?.status === "ready" ? "Ready" : activeDoc?.status ?? "Ready"}
-              </span>
-            </div>
-            <div className="doc-subtitle-row">
-              <span>
-                {activeDoc?.page_count ? `${activeDoc.page_count * 2} chunks` : "24 chunks"} •{" "}
-                {activeDoc ? `${(activeDoc.byte_size / (1024 * 1024)).toFixed(1)} MB` : "2.4 MB"} • Uploaded 2m ago
-              </span>
-            </div>
+            {activeDoc ? (
+              <>
+                <div className="doc-title-row">
+                  <span className="doc-filename">{activeDoc.filename}</span>
+                  <span className={`doc-status-pill ${activeDoc.status}`}>
+                    {activeDoc.status === "ready" ? "Ready" : activeDoc.status === "processing" ? "Processing" : "Failed"}
+                  </span>
+                </div>
+                <div className="doc-subtitle-row">
+                  <span>
+                    {activeDoc.page_count != null ? `${activeDoc.page_count * 2} chunks` : "—"} •{" "}
+                    {(activeDoc.byte_size / (1024 * 1024)).toFixed(1)} MB •{" "}
+                    Uploaded {(() => {
+                      const diffMs = Date.now() - new Date(activeDoc.created_at).getTime();
+                      const mins = Math.floor(diffMs / 60000);
+                      if (mins < 60) return `${Math.max(1, mins)}m ago`;
+                      const hrs = Math.floor(mins / 60);
+                      if (hrs < 24) return `${hrs}h ago`;
+                      return `${Math.floor(hrs / 24)}d ago`;
+                    })()}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="doc-title-row">
+                  <span className="doc-filename">No document selected</span>
+                  <span className="doc-status-pill ready">Upload a document to begin</span>
+                </div>
+                <div className="doc-subtitle-row">
+                  <span>Upload a PDF or TXT file to start chatting</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -718,7 +738,9 @@ export default function WorkspacePage() {
                   </div>
                   <div className="info-group">
                     <span className="info-label">Total chunks</span>
-                    <span className="info-value">24</span>
+                    <span className="info-value">
+                      {activeDoc?.page_count != null ? activeDoc.page_count * 2 : "—"}
+                    </span>
                   </div>
                   <div className="info-group">
                     <span className="info-label">Embedding model</span>

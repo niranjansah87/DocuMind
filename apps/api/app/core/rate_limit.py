@@ -26,12 +26,25 @@ class SlidingWindowRateLimiter:
 
     _instances: ClassVar[dict[str, list[float]]] = defaultdict(list)
     _last_cleanup: ClassVar[float] = 0.0
+    MAX_TRACKED_CLIENTS: ClassVar[int] = 10_000
 
     @classmethod
     def check_rate_limit(
         cls, key: str, max_requests: int, window_seconds: int = 60
     ) -> RateLimitResult:
         now = time.monotonic()
+
+        # Prevent unbounded memory growth under spoofed-key DoS attacks
+        if key not in cls._instances and len(cls._instances) >= cls.MAX_TRACKED_CLIENTS:
+            cls._cleanup(now, float(window_seconds))
+            if len(cls._instances) >= cls.MAX_TRACKED_CLIENTS:
+                # Evict oldest 1,000 entries
+                oldest_keys = sorted(
+                    cls._instances.keys(),
+                    key=lambda k: cls._instances[k][-1] if cls._instances[k] else 0,
+                )[:1000]
+                for old_k in oldest_keys:
+                    cls._instances.pop(old_k, None)
 
         # Periodic cleanup of keys older than 2 * window_seconds (run at most once per 30s)
         if now - cls._last_cleanup > 30.0:
@@ -81,19 +94,31 @@ class SlidingWindowRateLimiter:
         cls._last_cleanup = 0.0
 
 
-def get_client_identifier(request: Request) -> str:
-    """Derive client rate-limiting identifier from auth token, forwarded header, or client host."""
+def get_client_identifier(request: Request, settings: Settings | None = None) -> str:
+    """Derive client rate-limiting identifier from auth token, verified proxy header, or peer IP.
+
+    Guards against X-Forwarded-For header spoofing by only honoring forward headers
+    when the direct socket peer is an explicitly configured trusted proxy.
+    """
+    import hashlib
+
     auth_header = request.headers.get("Authorization") or request.headers.get("X-API-Key")
     if auth_header:
-        return f"auth:{hash(auth_header)}"
+        token_hash = hashlib.sha256(auth_header.encode()).hexdigest()[:16]
+        return f"auth:{token_hash}"
 
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        client_ip = forwarded_for.split(",")[0].strip()
-        return f"ip:{client_ip}"
+    peer_ip = request.client.host if request.client else ""
+    trusted = settings.trusted_proxies if settings else ["127.0.0.1", "::1", "localhost"]
 
-    if request.client and request.client.host:
-        return f"ip:{request.client.host}"
+    # Only honor X-Forwarded-For if socket peer is in trusted_proxies list
+    if peer_ip and peer_ip in trusted:
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            client_ip = forwarded_for.split(",")[0].strip()
+            return f"ip:{client_ip}"
+
+    if peer_ip:
+        return f"ip:{peer_ip}"
 
     return "anonymous"
 
@@ -101,7 +126,8 @@ def get_client_identifier(request: Request) -> str:
 def enforce_rate_limit(
     request: Request, limit: int, settings: Settings, window_seconds: int = 60
 ) -> RateLimitResult:
-    """Evaluate and enforce rate limit for the current request.
+    """Evaluate and enforce rate limit for the current request."""
+    client_id = get_client_identifier(request, settings)
 
     Raises AppError(429) if exceeded.
     """

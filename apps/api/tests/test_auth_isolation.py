@@ -75,3 +75,30 @@ def test_auth_required_accepts_valid_api_key_header() -> None:
     settings = Settings(auth_required=True, api_key="secret-prod-token")
     resolved_id = get_owner_id(request, settings)
     assert resolved_id == tenant_id
+
+
+def test_auth_verify_endpoint_default() -> None:
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+    response = client.get("/api/v1/auth/verify")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["authenticated"] is True
+    assert data["owner_id"] == str(DEMO_OWNER_ID)
+    assert "auth_required" in data
+
+
+def test_auth_verify_endpoint_with_tenant() -> None:
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+    custom_tenant = str(uuid.uuid4())
+    response = client.get("/api/v1/auth/verify", headers={"X-Owner-Id": custom_tenant})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["authenticated"] is True
+    assert data["owner_id"] == custom_tenant
+

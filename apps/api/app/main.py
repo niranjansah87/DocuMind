@@ -1,3 +1,4 @@
+import re
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -32,12 +33,13 @@ def error_response(request_id: str, code: str, message: str, status_code: int) -
 
 
 def create_app() -> FastAPI:
+    is_prod = settings.app_env.lower() == "production"
     application = FastAPI(
         title="DocuMind API",
         version="0.1.0",
         description="Document Q&A assistant with bounded RAG and agent tools",
-        docs_url="/docs",
-        redoc_url="/redoc",
+        docs_url=None if is_prod else "/docs",
+        redoc_url=None if is_prod else "/redoc",
     )
 
     # Production-grade CORS configuration
@@ -60,6 +62,8 @@ def create_app() -> FastAPI:
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        if request.url.path.startswith("/api/v1/"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
         if settings.app_env.lower() == "production":
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
@@ -100,7 +104,11 @@ def create_app() -> FastAPI:
     async def request_logging_middleware(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+        raw_request_id = request.headers.get("X-Request-ID") or ""
+        if raw_request_id and re.match(r"^[a-zA-Z0-9_\-]{1,64}$", raw_request_id):
+            request_id = raw_request_id
+        else:
+            request_id = str(uuid.uuid4())
         token = request_id_ctx.set(request_id)
         request.state.request_id = request_id
         start_time = time.perf_counter()

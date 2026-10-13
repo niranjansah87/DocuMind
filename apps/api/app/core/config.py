@@ -1,4 +1,5 @@
 import os
+import uuid
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
@@ -61,6 +62,14 @@ class Settings(BaseSettings):
     # Authentication & Security
     auth_required: bool = False
     api_key: str | None = None
+    default_tenant_id: uuid.UUID = Field(
+        default_factory=lambda: uuid.UUID("00000000-0000-0000-0000-000000000001")
+    )
+    tenant_api_keys: Annotated[dict[str, uuid.UUID], NoDecode] = Field(default_factory=dict)
+    metrics_token: str | None = None
+    trusted_proxies: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["127.0.0.1", "::1", "localhost"]
+    )
 
     # Rate Limiting (sliding window per-IP / per-user)
     rate_limit_enabled: bool = True
@@ -75,11 +84,23 @@ class Settings(BaseSettings):
     db_pool_recycle_seconds: int = Field(default=1800, ge=60)
     db_pool_timeout_seconds: float = Field(default=30.0, ge=1.0)
 
-    @field_validator("cors_origins", mode="before")
+    @field_validator("cors_origins", "trusted_proxies", mode="before")
     @classmethod
-    def parse_origins(cls, value: object) -> object:
+    def parse_string_lists(cls, value: object) -> object:
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
+        return value
+
+    @field_validator("tenant_api_keys", mode="before")
+    @classmethod
+    def parse_tenant_keys(cls, value: object) -> object:
+        if isinstance(value, str):
+            import json
+            try:
+                raw_dict = json.loads(value)
+                return {k: uuid.UUID(str(v)) for k, v in raw_dict.items()}
+            except Exception:
+                return {}
         return value
 
     @field_validator("llm_fallback_model", mode="before")
@@ -93,6 +114,18 @@ class Settings(BaseSettings):
             raise ValueError("CHUNK_OVERLAP_TOKENS must be smaller than CHUNK_SIZE_TOKENS")
         if self.embedding_dimensions != 1536:
             raise ValueError("EMBEDDING_DIMENSIONS must match the migration's 1536 dimensions")
+        if self.app_env.lower() == "production":
+            if not self.auth_required:
+                raise ValueError("AUTH_REQUIRED must be true when APP_ENV=production")
+            if not self.api_key and not self.tenant_api_keys:
+                raise ValueError("API_KEY or TENANT_API_KEYS must be set when APP_ENV=production")
+            insecure_keys = {"documind-api-key-here", "secret", "test", "password", "12345"}
+            if self.api_key and self.api_key.lower() in insecure_keys:
+                raise ValueError("Insecure default API_KEY cannot be used in production")
+            if "documind-local-only" in self.database_url:
+                raise ValueError("Insecure default database credentials cannot be used in production")
+        if self.auth_required and not self.api_key and not self.tenant_api_keys:
+            raise ValueError("API_KEY or TENANT_API_KEYS must be configured when AUTH_REQUIRED=true")
         return self
 
 
