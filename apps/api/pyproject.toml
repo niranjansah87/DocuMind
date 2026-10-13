@@ -1,0 +1,58 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "documind-api"
+version = "0.1.0"
+description = "DocuMind FastAPI service"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+  "alembic==1.17.0",
+  "asyncpg==0.30.0",
+  "fastapi==0.118.0",
+  "httpx==0.28.1",
+  "pgvector==0.4.1",
+  "pydantic-settings==2.11.0",
+  "pypdf==6.1.1",
+  "python-multipart==0.0.20",
+  "sqlalchemy==2.0.44",
+  "tiktoken==0.12.0",
+  "uvicorn[standard]==0.37.0",
+]
+
+[dependency-groups]
+dev = [
+  "mypy==1.18.2",
+  "pytest==8.4.2",
+  "pytest-asyncio==1.2.0",
+  "ruff==0.14.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["B008", "E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "pgvector.sqlalchemy"
+ignore_missing_imports = true
+
+[tool.uv]
+default-groups = ["dev"]
