@@ -5,7 +5,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { toast } from "sonner";
 import { Icon } from "./icons";
+import { getAppMeta } from "@/lib/api";
 import { getAuthToken, getTenantId } from "@/lib/auth";
 
 const navItems = [
@@ -49,6 +51,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       window.removeEventListener("documind:auth-changed", updateLabel);
     };
   }, [pathname]);
+
+  useEffect(() => {
+    if (pathname === "/login") return;
+
+    let isMounted = true;
+    void (async () => {
+      try {
+        const meta = await getAppMeta();
+        if (isMounted && meta.auth_required) {
+          const token = getAuthToken();
+          if (!token) {
+            toast.error("Authentication required. Redirecting to login...", {
+              id: "appshell-auth-guard",
+              duration: 3500,
+            });
+            router.push("/login");
+          }
+        }
+      } catch {
+        // Handled by api.ts interceptor
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [pathname, router]);
+
+  useEffect(() => {
+    const handleUnauthorizedEvent = () => {
+      if (pathname !== "/login") {
+        router.push("/login");
+      }
+    };
+    window.addEventListener("documind:unauthorized", handleUnauthorizedEvent);
+    return () => window.removeEventListener("documind:unauthorized", handleUnauthorizedEvent);
+  }, [pathname, router]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Toaster } from "sonner";
 import { AppShell } from "@/components/app-shell";
 import "./styles.css";
 
@@ -66,6 +67,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body>
         <AppShell>{children}</AppShell>
+        <Toaster position="top-right" richColors closeButton />
       </body>
     </html>
   );

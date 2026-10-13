@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { toast } from "sonner";
 import { Icon } from "@/components/icons";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import {
@@ -52,7 +53,6 @@ export default function WorkspacePage() {
   const [activeTab, setActiveTab] = useState<"sources" | "details" | "related">("sources");
   const [activeCitation, setActiveCitation] = useState<Citation | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(true);
-  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
@@ -131,8 +131,11 @@ export default function WorkspacePage() {
       const result = await uploadDocument(file);
       await refreshDocuments();
       setActiveDocId(result.document_id);
+      toast.success(`"${file.name}" uploaded successfully!`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed.");
+      const msg = err instanceof Error ? err.message : "Upload failed.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
       event.target.value = "";
@@ -142,6 +145,7 @@ export default function WorkspacePage() {
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
+    toast.success("Copied to clipboard!");
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -573,16 +577,6 @@ export default function WorkspacePage() {
                 </div>
 
                 <div className="composer-bar-right">
-                  <label className="web-search-toggle" title="Search web sources">
-                    <input
-                      type="checkbox"
-                      checked={webSearchEnabled}
-                      onChange={(e) => setWebSearchEnabled(e.target.checked)}
-                    />
-                    <span className="toggle-switch-slider" />
-                    <span className="toggle-label">Web search</span>
-                  </label>
-
                   <motion.button
                     type="submit"
                     className="send-arrow-button"
@@ -838,9 +832,12 @@ function TicketDialog({
     setError("");
     try {
       const res = await confirmTicket(pending.pending_action_id);
+      toast.success(`Support ticket ${res.ticket_number} created successfully!`);
       onSuccess(res.ticket_number);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to confirm ticket.");
+      const msg = err instanceof Error ? err.message : "Failed to confirm ticket.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }

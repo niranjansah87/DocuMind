@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
+import { toast } from "sonner";
 import { Icon } from "@/components/icons";
 import { checkHealth, getAppMeta, verifyAuth } from "@/lib/api";
 import {
@@ -105,6 +106,9 @@ export default function LoginPage() {
         setTenantId(verified.owner_id, remember);
       }
 
+      toast.success("Workspace credentials verified and connected!", {
+        id: "auth-success",
+      });
       router.push("/");
     } catch (err: unknown) {
       const msg =
@@ -112,13 +116,28 @@ export default function LoginPage() {
           ? err.message
           : "Authentication failed. Please verify your credentials.";
       setError(msg);
+      toast.error(msg, { id: "auth-error" });
       setLoading(false);
     }
   };
 
   const handleDemoAccess = () => {
-    clearAuthToken();
+    if (authRequired === true && !token && !storedToken) {
+      toast.warning("Backend requires an API Key (AUTH_REQUIRED=true). Please enter your key below to connect.", {
+        id: "demo-auth-required",
+        duration: 4000,
+      });
+      setUserTab("custom");
+      return;
+    }
+
+    if (!storedToken) {
+      clearAuthToken();
+    }
     setTenantId(DEFAULT_DEMO_TENANT, true);
+    toast.success("Connected to Reviewer Demo scope!", {
+      id: "demo-success",
+    });
     router.push("/");
   };
 
@@ -129,6 +148,7 @@ export default function LoginPage() {
     setTenantIdInput("");
     setError("");
     setUserTab("demo");
+    toast.info("Active workspace session cleared.", { id: "auth-cleared" });
   };
 
   return (

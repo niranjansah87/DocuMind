@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { toast } from "sonner";
 import { Icon } from "@/components/icons";
 import { deleteDocument, getAppMeta, getDocument, listDocuments, uploadDocument } from "@/lib/api";
 import type { AppMeta, DocumentDetail, DocumentItem } from "@/lib/types";
@@ -97,16 +98,18 @@ export default function DocumentsPage() {
     setNotice(`Uploading and indexing ${file.name}...`);
     try {
       const result = await uploadDocument(file);
-      setNotice(
-        result.duplicate
-          ? `${result.filename} was already indexed in this workspace.`
-          : `${result.filename} indexed successfully with ${result.chunk_count} chunks.`,
-      );
+      const msg = result.duplicate
+        ? `${result.filename} was already indexed in this workspace.`
+        : `${result.filename} indexed successfully with ${result.chunk_count} chunks.`;
+      setNotice(msg);
+      toast.success(msg);
       await refresh();
       setSelectedDocId(result.document_id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed.");
+      const msg = err instanceof Error ? err.message : "Upload failed.";
+      setError(msg);
       setNotice("");
+      toast.error(msg);
     } finally {
       setUploading(false);
       event.target.value = "";
@@ -118,13 +121,17 @@ export default function DocumentsPage() {
     try {
       await deleteDocument(doc.document_id);
       setDocuments((curr) => curr.filter((d) => d.document_id !== doc.document_id));
-      setNotice(`${doc.filename} deleted.`);
+      const msg = `${doc.filename} deleted.`;
+      setNotice(msg);
+      toast.success(msg);
       if (selectedDocId === doc.document_id) {
         setSelectedDocId("");
         setSelectedDocDetail(null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Delete failed.");
+      const msg = err instanceof Error ? err.message : "Delete failed.";
+      setError(msg);
+      toast.error(msg);
     }
   };
 

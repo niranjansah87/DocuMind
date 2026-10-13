@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { getAuthHeaders } from "./auth";
 import type {
   ApiError,
@@ -15,7 +16,30 @@ import type {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
+let isRedirecting = false;
+
+function handleUnauthorized(): void {
+  if (typeof window === "undefined") return;
+  if (window.location.pathname === "/login") return;
+  if (isRedirecting) return;
+  isRedirecting = true;
+
+  toast.error("Authentication required. Redirecting to login...", {
+    id: "auth-redirect-toast",
+    duration: 3500,
+  });
+
+  window.dispatchEvent(new CustomEvent("documind:unauthorized"));
+
+  setTimeout(() => {
+    isRedirecting = false;
+  }, 1000);
+}
+
 async function errorMessage(response: Response): Promise<string> {
+  if (response.status === 401) {
+    handleUnauthorized();
+  }
   const fallback = `Request failed (${response.status})`;
   try {
     const payload = (await response.json()) as ApiError;
