@@ -1,12 +1,12 @@
 FROM node:22-alpine AS deps
 WORKDIR /repo/apps/web
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9 --activate
 COPY apps/web/package.json apps/web/pnpm-lock.yaml* ./
-RUN pnpm install --no-frozen-lockfile --config.minimum-release-age=0
+RUN pnpm install --no-frozen-lockfile
 
 FROM node:22-alpine AS builder
 WORKDIR /repo/apps/web
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9 --activate
 ARG NEXT_PUBLIC_API_BASE_URL=
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /repo/apps/web/node_modules ./node_modules
