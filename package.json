@@ -1,0 +1,19 @@
+{
+  "name": "documind-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n \"api,web\" -c \"magenta.bold,cyan.bold\" --kill-others \"pnpm dev:api\" \"pnpm dev:web\"",
+    "dev:api": "cd apps/api && uv run uvicorn app.main:app --host 127.0.0.1 --port 8888 --reload",
+    "dev:web": "pnpm --filter documind-web dev",
+    "build": "pnpm --filter documind-web build",
+    "start": "pnpm --filter documind-web start",
+    "lint": "pnpm --filter documind-web lint && cd apps/api && uv run ruff check .",
+    "typecheck": "pnpm --filter documind-web typecheck && cd apps/api && uv run mypy app",
+    "test": "cd apps/api && uv run pytest -q && pnpm --filter documind-web typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
+

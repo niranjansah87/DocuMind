@@ -117,3 +117,20 @@
 -   Explicit ticket confirmation: safe side-effect handling.
 -   Bounded synchronous ingestion for demo: simple now; background
     workers if file sizes/traffic grow.
+
+---
+
+## 4. Production Readiness Hardening Risk Register
+
+| ID | Severity | Finding | Evidence | Impact | Recommended Remediation | Verification Method | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **SEC-01** | **P0** | Unrestricted API endpoints prone to resource exhaustion & DoS. | Endpoints `/documents`, `/chat`, `/tickets` had no rate limiting. | Client loops or malicious scraping could exhaust DB connections and LLM budget. | Implemented `SlidingWindowRateLimiter` middleware with route-specific quotas returning HTTP 429 & `Retry-After`. | `test_rate_limit.py` (3 unit tests) verifying 429 status code and retry window. | **RESOLVED** |
+| **SEC-02** | **P0** | Hardcoded demo owner ID exposed without token authentication option. | `get_owner_id()` unconditionally returned `DEMO_OWNER_ID`. | In production, any user could modify any document or query other documents. | Added `AUTH_REQUIRED` and `API_KEY` validation supporting Bearer & X-API-Key tokens with `X-Owner-Id` tenant isolation. | `test_auth_isolation.py` (7 tests) verifying 401 on missing auth, 403 on invalid key, and tenant scoping. | **RESOLVED** |
+| **SEC-03** | **P0** | Missing defensive HTTP security headers on API and Web. | Neither FastAPI nor Next.js set `nosniff`, `DENY`, or CSP headers. | Clickjacking, MIME-confusion, cross-site scripting risks. | Added `security_headers_middleware` in FastAPI and comprehensive security headers in `next.config.ts`. | `test_security_headers.py` verifying headers present on all responses. | **RESOLVED** |
+| **OBS-01** | **P1** | Plain-text logs in production risking credential leaks. | Logs were printed in unstructured format without pattern scrubbing. | Exposed tokens could leak into centralized log collectors (Datadog/Loki). | Implemented `JSONLogFormatter` and `SensitiveDataFilter` redacting OpenAI keys, Bearer tokens, and DB passwords. | `test_logging_redaction.py` (4 tests) verifying automated regex pattern scrubbing. | **RESOLVED** |
+| **OBS-02** | **P1** | Lack of real-time operational telemetry for Prometheus scrapers. | No `/metrics` endpoint existed; only `/health` and `/ready`. | SREs could not monitor error rates, latencies, or ingestion counts. | Created `/metrics` endpoint supporting Prometheus text and JSON exposition formats. | `test_security_headers.py` verifying `/metrics` returns Prometheus metrics format. | **RESOLVED** |
+| **REL-01** | **P1** | Default database connection pooling in asyncpg. | `create_async_engine` did not specify pool size or timeouts. | Concurrent spikes could exhaust Postgres connections or trigger timeouts. | Configured `db_pool_size`, `db_max_overflow`, `db_pool_recycle_seconds`, and `db_pool_timeout_seconds` in `Settings`. | Engine initialization verified with pool parameters. | **RESOLVED** |
+| **UI-01** | **P1** | Missing React error boundaries and 404 page. | Unhandled client exceptions caused white screen of death. | Poor user experience and lost recovery options on transient errors. | Added `apps/web/app/error.tsx` and `apps/web/app/not-found.tsx` with friendly recovery actions. | Next.js build compilation verified with error and not-found routes. | **RESOLVED** |
+| **SEO-01** | **P2** | Private document routes lacked indexing protections. | No `robots.ts` or `sitemap.ts` existed in Next.js. | Search engine bots could attempt to crawl and index private documents or evaluation pages. | Implemented dynamic `robots.ts` disallowing `/documents` and `/evaluation`, and `sitemap.ts` listing only `/`. | Next.js build verified generating `/robots.txt` and `/sitemap.xml`. | **RESOLVED** |
+| **CICD-01** | **P2** | Absence of automated CI workflow on pull requests. | No `.github/workflows` existed. | Regressions could be merged undetected. | Created `.github/workflows/ci.yml` running pytest, ruff, mypy, tsc, lint, and build. | Workflow syntax validated against GitHub Actions specifications. | **RESOLVED** |
+

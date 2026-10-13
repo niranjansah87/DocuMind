@@ -20,7 +20,7 @@ This is the recommended workflow for developing on Windows, macOS, or Linux with
 
 ### 2.1 Prerequisites
 * **Python 3.12+** with [`uv`](https://docs.astral.sh/uv/) installed.
-* **Node.js 22+** and `npm`.
+* **Node.js 22+** and [`pnpm`](https://pnpm.io/).
 * **PostgreSQL 16** with `pgvector` extension installed and running locally on port 5432.
 * An OpenAI API key with access to chat and embedding models.
 
@@ -39,7 +39,17 @@ cp .env.example .env
 ```
 Ensure `DATABASE_URL` and `OPENAI_API_KEY` are configured properly.
 
-### 2.4 Running the Backend API
+### 2.4 Quick Start: Run Everything with One Command
+From repository root:
+```bash
+pnpm install
+pnpm dev
+```
+Runs both FastAPI backend (port 8888) and Next.js frontend (port 7777) simultaneously in one terminal with colored prefix tags.
+
+### 2.5 Running Services Individually
+
+#### Backend API
 ```bash
 cd apps/api
 uv sync --frozen
@@ -48,16 +58,17 @@ uv run python -m app.seed
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8888 --reload
 ```
 API endpoints will be live at:
+* Dashboard & Landing Page: `http://127.0.0.1:8888/`
 * Liveness: `http://127.0.0.1:8888/health`
 * Readiness: `http://127.0.0.1:8888/ready`
 * OpenAPI Docs: `http://127.0.0.1:8888/docs`
 
-### 2.5 Running the Frontend Web Application
+#### Frontend Web Application
 In a separate terminal:
 ```bash
 cd apps/web
-npm ci
-npm run dev
+pnpm install
+pnpm run dev
 ```
 The application will be accessible at `http://localhost:7777`.
 Internal rewrites in Next.js automatically forward `/api/*`, `/health`, and `/ready` to `http://127.0.0.1:8888`.

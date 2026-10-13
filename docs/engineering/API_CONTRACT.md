@@ -29,6 +29,26 @@ Checks PostgreSQL connectivity and `vector` extension readiness.
 ```
 *Returns `503 Service Unavailable` if database connection or vector extension is unavailable.*
 
+### `GET /metrics`
+Exposes operational metrics in Prometheus text exposition format (default) or JSON when `Accept: application/json` is supplied.
+- **Cache-Control:** `no-store, no-cache, must-revalidate`
+- **Output:** Prometheus gauges/counters for uptime, database health, HTTP requests by route and status, request latencies, ingestion totals, chat routes, order queries, ticket actions, and rate limit rejections.
+
+### Standard Security & Operational Headers
+Every API response includes:
+- `X-Request-ID`: Trace identifier (UUIDv4) for request correlation.
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- `X-RateLimit-Limit`: Maximum requests permitted per window.
+- `X-RateLimit-Remaining`: Remaining requests in current window.
+- When `429 Too Many Requests`: Includes `Retry-After: 60`.
+
+### Authentication Headers
+- `Authorization: Bearer <token>` or `X-API-Key: <key>`: Required when `AUTH_REQUIRED=true`.
+- `X-Owner-Id: <uuid>`: Optional tenant identifier header for multi-tenant isolation testing.
+
 ---
 
 ## 2. Documents API

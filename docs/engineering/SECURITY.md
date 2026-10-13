@@ -93,22 +93,37 @@ clearly state any demo-only shortcuts.
 -   Treat LLM-generated tool arguments and citations as untrusted until
     validated.
 
-## 6. Authentication and demo limitations
+## 6. Authentication and Multi-Tenant Isolation (Implemented)
 
-The assignment does not explicitly require login. A single-user demo may
-use a fixed demo scope, but must not claim full multi-tenant
-authorization. The data model and repository interfaces should make
-ownership explicit so authentication can be added without rewriting
-retrieval. If real multi-user auth is implemented, scope must come from
-a verified session/token, not client-supplied `owner_id`.
+DocuMind supports dual-mode operation for local evaluation and production deployment:
+- **Local / Reviewer Mode (`AUTH_REQUIRED=false`):** Defaults to `DEMO_OWNER_ID` (`00000000-0000-0000-0000-000000000001`), allowing clean-machine testing without pre-configured tokens. Honors `X-Owner-Id` or `X-User-Id` request headers for isolated multi-tenant testing.
+- **Production Mode (`AUTH_REQUIRED=true`):** Enforces bearer token (`Authorization: Bearer <token>`) or API key (`X-API-Key: <key>`) authentication. Unauthenticated requests are rejected with `401 UNAUTHORIZED`; invalid credentials yield `403 FORBIDDEN`.
+- **Database & Vector Isolation:** All document chunks, embeddings, order records, and tickets are strictly filtered by `owner_id` at the SQL query layer before context reaches the LLM.
 
-## 7. Privacy and retention
+## 7. Rate Limiting & Resource Exhaustion Defense (Implemented)
 
--   Document whether original uploads are stored or only extracted
-    text/chunks are retained.
+- **Sliding-Window Rate Limiter:** An in-memory sliding window limiter (`SlidingWindowRateLimiter`) throttles requests per client IP or authenticated token.
+- **Per-Route Quotas:**
+  - Document Uploads: 15 / minute
+  - Chat & LLM Queries: 60 / minute
+  - Ticket Operations: 30 / minute
+  - General API: 120 / minute
+- **Response Headers:** `429 Too Many Requests` returns `Retry-After: 60`, `X-RateLimit-Limit`, and `X-RateLimit-Remaining`.
+
+## 8. HTTP Defensive Security Headers (Implemented)
+
+FastAPI and Next.js enforce standard browser defenses:
+- `X-Content-Type-Options: nosniff` (prevents MIME confusion attacks)
+- `X-Frame-Options: DENY` (clickjacking protection)
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- `Content-Security-Policy`: Restricts script and object execution; document downloads enforce `default-src 'none'; sandbox`.
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains` (enforced when `APP_ENV=production`).
+
+## 9. Privacy and retention
+
+-   Original uploads are processed in memory; extracted text and chunks are retained in PostgreSQL.
 -   Avoid sending more context to the LLM than required.
 -   Do not include real personal, customer or order data in fixtures.
--   Define cleanup behavior for failed ingestion and optional document
-    deletion.
--   Evaluation logs should store IDs, scores and timing by default;
-    store text only when necessary for debugging.
+-   Automated log scrubbing via `SensitiveDataFilter` masks OpenAI keys, Bearer tokens, and database passwords.
+-   Evaluation logs store IDs, scores, and timing; text is stored only in sanitized benchmark artifacts.
