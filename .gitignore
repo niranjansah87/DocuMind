@@ -11,6 +11,8 @@
 **/node_modules/
 **/.next/
 **/coverage/
+**/*.tsbuildinfo
+**/pytest-cache-files-*/
 evaluation/results/*.json
 !.gitkeep
 prompt.txt
