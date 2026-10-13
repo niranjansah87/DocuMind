@@ -1,12 +1,12 @@
-# DocuMind — Product Requirements Document (PRD)
+# DocuMind - Product Requirements Document (PRD)
 
 **Document status:** Product baseline for implementation  
 **Version:** 1.0  
-**Product:** DocuMind — Document Q&A Assistant with RAG and an Agent  
+**Product:** DocuMind - Document Q&A Assistant with RAG and an Agent  
 **Primary stakeholder:** VanarX Tech take-home assignment reviewer  
 **Intended readers:** Candidate/engineer, coding agents, reviewers, future maintainers  
 **Source of mandatory requirements:** `vanarX_candidate_task.docx` supplied for this assignment  
-**Implementation status:** Not yet scaffolded; this document defines intended behavior and acceptance criteria.
+**Implementation status:** Fully implemented, verified end-to-end, and benchmarked.
 
 > **Interpretation rule:** “Required” means explicitly requested by the assignment. “Recommended” means a design choice proposed to make the system reliable. Open decisions must not be presented as implemented facts. Evaluation metrics must be measured, never fabricated.
 
@@ -107,7 +107,7 @@ Needs modular code, clear configuration, meaningful tests, reproducible evaluati
 
 ## 7. Core user journeys
 
-### Journey A — First-run reviewer workflow
+### Journey A - First-run reviewer workflow
 1. Clone the repository.
 2. Copy `.env.example` to `.env`.
 3. Add the required LLM/embedding API key(s).
@@ -121,7 +121,7 @@ Needs modular code, clear configuration, meaningful tests, reproducible evaluati
 
 **Pass condition:** all steps work without manual database setup or undocumented configuration.
 
-### Journey B — Successful document ingestion
+### Journey B - Successful document ingestion
 1. User chooses a PDF or TXT file.
 2. UI displays allowed types and maximum size.
 3. API validates the file.
@@ -132,13 +132,13 @@ Needs modular code, clear configuration, meaningful tests, reproducible evaluati
 8. PostgreSQL stores document and chunk records.
 9. UI shows document as ready and allows it to be selected for chat.
 
-### Journey C — Duplicate upload
+### Journey C - Duplicate upload
 1. User uploads the same file twice in the same scope.
 2. Server identifies the same content hash.
 3. Server returns the existing document identity or another documented idempotent response.
 4. No duplicate chunks are created.
 
-### Journey D — Grounded document answer
+### Journey D - Grounded document answer
 1. User asks a question.
 2. Router selects the direct RAG path.
 3. Retriever searches only allowed documents.
@@ -148,13 +148,13 @@ Needs modular code, clear configuration, meaningful tests, reproducible evaluati
 7. API streams or returns the answer and trusted citation metadata.
 8. UI displays the answer and expandable citation details.
 
-### Journey E — Unsupported question
+### Journey E - Unsupported question
 1. User asks for information absent from selected documents.
 2. Retrieval produces no sufficiently relevant evidence, or evidence does not support the requested fact.
 3. System returns a concise unknown response.
 4. System does not generate unsupported factual claims or false citations.
 
-### Journey F — Order status
+### Journey F - Order status
 1. User asks an order-related question, ideally with an order number.
 2. Router selects the order tool path.
 3. Server validates the order number and request scope.
@@ -162,7 +162,7 @@ Needs modular code, clear configuration, meaningful tests, reproducible evaluati
 5. System reports the returned status, a clear not-found result, or an honest temporary failure.
 6. It does not answer from RAG as a substitute for the order tool.
 
-### Journey G — Ticket creation
+### Journey G - Ticket creation
 1. User asks to create a ticket.
 2. System gathers required subject/description and optional order reference.
 3. Server validates fields.
@@ -172,7 +172,7 @@ Needs modular code, clear configuration, meaningful tests, reproducible evaluati
 7. Ticket is created once using idempotency protection.
 8. UI displays the ticket ID and status.
 
-### Journey H — Tool/provider failure
+### Journey H - Tool/provider failure
 1. Tool or model call fails.
 2. Retry occurs only for eligible transient failures and within the request deadline.
 3. Primary model fallback is attempted if configured and appropriate.

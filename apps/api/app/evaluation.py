@@ -23,7 +23,26 @@ from app.services.orders import OrderService
 
 EVALUATION_OWNER_ID = uuid.UUID("00000000-0000-0000-0000-0000000000e1")
 ROOT = Path(__file__).parents[3]
-STOP_WORDS = {"a", "an", "and", "are", "at", "be", "by", "for", "from", "in", "is", "it", "of", "on", "or", "the", "to", "with"}
+STOP_WORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "at",
+    "be",
+    "by",
+    "for",
+    "from",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "the",
+    "to",
+    "with",
+}
 
 
 def answer_overlap(answer: str, expected: str) -> float:
@@ -78,20 +97,46 @@ async def run_evaluation(chunk_sizes: list[int]) -> dict[str, Any]:
                     for item, query_vector in zip(questions, query_vectors, strict=True):
                         started = time.monotonic()
                         rows = (
-                            await repository.retrieve_hybrid(EVALUATION_OWNER_ID, [document.id], item["question"], query_vector, settings.retrieval_top_k)
+                            await repository.retrieve_hybrid(
+                                EVALUATION_OWNER_ID,
+                                [document.id],
+                                item["question"],
+                                query_vector,
+                                settings.retrieval_top_k,
+                            )
                             if mode == "hybrid"
-                            else await repository.retrieve(EVALUATION_OWNER_ID, [document.id], query_vector, settings.retrieval_top_k)
+                            else await repository.retrieve(
+                                EVALUATION_OWNER_ID,
+                                [document.id],
+                                query_vector,
+                                settings.retrieval_top_k,
+                            )
                         )
-                        relevant = [(chunk, source, 1 - distance) for chunk, source, distance in rows if 1 - distance >= settings.retrieval_similarity_threshold]
-                        evidence_retrieved = any(item["gold_section"].lower() in chunk.text.lower() for chunk, _, _ in rows)
+                        relevant = [
+                            (chunk, source, 1 - distance)
+                            for chunk, source, distance in rows
+                            if 1 - distance >= settings.retrieval_similarity_threshold
+                        ]
+                        evidence_retrieved = any(
+                            item["gold_section"].lower() in chunk.text.lower()
+                            for chunk, _, _ in rows
+                        )
                         if relevant:
-                            raw = await provider.generate(service._messages(item["question"], relevant))
+                            raw = await provider.generate(
+                                service._messages(item["question"], relevant)
+                            )
                             response = service._validated_response(raw, relevant, started)
                         else:
                             response = service._abstain(started)
                         candidate_ids = {chunk.id for chunk, _, _ in rows}
-                        citations_valid = bool(response.citations) and all(citation.chunk_id in candidate_ids for citation in response.citations)
-                        supported = not response.abstained and citations_valid and answer_overlap(response.answer, item["expected_answer"]) >= 0.45
+                        citations_valid = bool(response.citations) and all(
+                            citation.chunk_id in candidate_ids for citation in response.citations
+                        )
+                        supported = (
+                            not response.abstained
+                            and citations_valid
+                            and answer_overlap(response.answer, item["expected_answer"]) >= 0.45
+                        )
                         measurements.append(
                             {
                                 "id": item["id"],
@@ -100,7 +145,9 @@ async def run_evaluation(chunk_sizes: list[int]) -> dict[str, Any]:
                                 "retrieved_chunk_ids": [str(chunk.id) for chunk, _, _ in rows],
                                 "evidence_retrieved": evidence_retrieved,
                                 "answer": response.answer,
-                                "citation_ids": [str(citation.chunk_id) for citation in response.citations],
+                                "citation_ids": [
+                                    str(citation.chunk_id) for citation in response.citations
+                                ],
                                 "citations_valid": citations_valid,
                                 "supported_by_lexical_gold_check": supported,
                                 "latency_ms": response.latency_ms,
@@ -115,8 +162,12 @@ async def run_evaluation(chunk_sizes: list[int]) -> dict[str, Any]:
                             "questions_tested": len(measurements),
                             "correct_evidence_retrieved": evidence_count,
                             "retrieval_recall_at_k": round(evidence_count / len(measurements), 3),
-                            "supported_answers": sum(item["supported_by_lexical_gold_check"] for item in measurements),
-                            "citation_valid_answers": sum(item["citations_valid"] for item in measurements),
+                            "supported_answers": sum(
+                                item["supported_by_lexical_gold_check"] for item in measurements
+                            ),
+                            "citation_valid_answers": sum(
+                                item["citations_valid"] for item in measurements
+                            ),
                             "mean_latency_ms": round(mean(latencies)),
                             "median_latency_ms": round(median(latencies)),
                             "failed_requests": 0,

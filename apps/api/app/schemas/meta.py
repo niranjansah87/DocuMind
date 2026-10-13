@@ -17,6 +17,7 @@ class AppMetaResponse(BaseModel):
     retrieval_top_k: int
     chunk_size_tokens: int
     chunk_overlap_tokens: int
+    auth_required: bool = False
 
 
 class EvaluationQuestion(BaseModel):

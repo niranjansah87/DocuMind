@@ -28,7 +28,11 @@ async def seed_orders() -> None:
             await session.execute(
                 statement.on_conflict_do_update(
                     index_elements=["owner_id", "order_number"],
-                    set_={"status": statement.excluded.status, "items": statement.excluded["items"], "updated_at": statement.excluded.updated_at},
+                    set_={
+                        "status": statement.excluded.status,
+                        "items": statement.excluded["items"],
+                        "updated_at": statement.excluded.updated_at,
+                    },
                 )
             )
         await session.commit()

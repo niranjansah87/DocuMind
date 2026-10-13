@@ -1,0 +1,29 @@
+[Unit]
+Description=DocuMind Next.js Frontend Web Service
+After=network.target documind-api.service
+Wants=documind-api.service
+
+[Service]
+Type=simple
+User=documind
+Group=documind
+WorkingDirectory=/var/www/documind/apps/web
+EnvironmentFile=/var/www/documind/.env
+Environment="NODE_ENV=production"
+Environment="PORT=7777"
+Environment="HOSTNAME=127.0.0.1"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+ExecStart=/usr/bin/npm run start -- --port 7777 --hostname 127.0.0.1
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=documind-web
+
+# Security sandboxing
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+

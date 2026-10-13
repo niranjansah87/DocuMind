@@ -20,8 +20,12 @@ class OpenAICompatibleProvider:
             "dimensions": self.settings.embedding_dimensions,
         }
         data = await self._post("/embeddings", payload)
-        vectors = [item["embedding"] for item in sorted(data["data"], key=lambda item: item["index"])]
-        if len(vectors) != len(texts) or any(len(vector) != self.settings.embedding_dimensions for vector in vectors):
+        vectors = [
+            item["embedding"] for item in sorted(data["data"], key=lambda item: item["index"])
+        ]
+        if len(vectors) != len(texts) or any(
+            len(vector) != self.settings.embedding_dimensions for vector in vectors
+        ):
             raise ProviderUnavailableError()
         return vectors
 
@@ -44,6 +48,11 @@ class OpenAICompatibleProvider:
         raise ProviderUnavailableError()
 
     async def stream_generate(self, messages: list[dict[str, str]]) -> AsyncIterator[str]:
+        """doc-mind-ai: Low-latency SSE streaming generation with fallback model resiliency.
+
+        Streams LLM tokens chunk-by-chunk using Server-Sent Events to minimize Time-to-First-Token (TTFT),
+        falling back automatically to a secondary lightweight model if the primary model fails or times out.
+        """
         if not self.settings.openai_api_key:
             raise ProviderUnavailableError()
         for model in filter(None, [self.settings.llm_model, self.settings.llm_fallback_model]):
@@ -73,11 +82,14 @@ class OpenAICompatibleProvider:
             "stream": True,
         }
         try:
-            async with httpx.AsyncClient(
-                base_url=self.settings.openai_base_url.rstrip("/"),
-                headers=headers,
-                timeout=self.settings.provider_timeout_seconds,
-            ) as client, client.stream("POST", "/chat/completions", json=payload) as response:
+            async with (
+                httpx.AsyncClient(
+                    base_url=self.settings.openai_base_url.rstrip("/"),
+                    headers=headers,
+                    timeout=self.settings.provider_timeout_seconds,
+                ) as client,
+                client.stream("POST", "/chat/completions", json=payload) as response,
+            ):
                 if response.is_error:
                     raise ProviderUnavailableError()
                 async for line in response.aiter_lines():
@@ -88,7 +100,12 @@ class OpenAICompatibleProvider:
                         return
                     try:
                         delta = json.loads(data)["choices"][0]["delta"].get("content")
-                    except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
+                    except (
+                        json.JSONDecodeError,
+                        KeyError,
+                        IndexError,
+                        TypeError,
+                    ) as exc:
                         raise ProviderUnavailableError() from exc
                     if delta:
                         yield str(delta)

@@ -9,7 +9,13 @@ from app.services.chat import UNKNOWN_ANSWER, ChatService
 
 
 class FakeRepository:
-    async def retrieve(self, owner_id: uuid.UUID, document_ids: list[uuid.UUID], embedding: list[float], limit: int) -> list[tuple[object, object, float]]:
+    async def retrieve(
+        self,
+        owner_id: uuid.UUID,
+        document_ids: list[uuid.UUID],
+        embedding: list[float],
+        limit: int,
+    ) -> list[tuple[object, object, float]]:
         chunk = SimpleNamespace(
             id=uuid.uuid4(),
             text="Returns are allowed within 30 days.",

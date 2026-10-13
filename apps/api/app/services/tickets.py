@@ -9,7 +9,11 @@ from app.core.errors import AppError
 from app.db.models import PendingAction, SupportTicket
 from app.repositories.orders import OrderRepository
 from app.repositories.tickets import TicketRepository
-from app.schemas.tools import TicketConfirmResponse, TicketPrepareRequest, TicketPrepareResponse
+from app.schemas.tools import (
+    TicketConfirmResponse,
+    TicketPrepareRequest,
+    TicketPrepareResponse,
+)
 
 
 class TicketService:
@@ -19,11 +23,17 @@ class TicketService:
         self.orders = OrderRepository(session)
         self.tickets = TicketRepository(session)
 
-    async def prepare(self, owner_id: uuid.UUID, request: TicketPrepareRequest) -> TicketPrepareResponse:
-        if request.order_number and not await self.orders.get_by_number(owner_id, request.order_number):
+    async def prepare(
+        self, owner_id: uuid.UUID, request: TicketPrepareRequest
+    ) -> TicketPrepareResponse:
+        if request.order_number and not await self.orders.get_by_number(
+            owner_id, request.order_number
+        ):
             raise AppError("ORDER_NOT_FOUND", f"Order {request.order_number} was not found.", 404)
         pending_id = uuid.uuid4()
-        expires_at = datetime.now(UTC) + timedelta(seconds=self.settings.ticket_confirmation_ttl_seconds)
+        expires_at = datetime.now(UTC) + timedelta(
+            seconds=self.settings.ticket_confirmation_ttl_seconds
+        )
         payload = request.model_dump()
         action = PendingAction(
             id=pending_id,
@@ -42,23 +52,41 @@ class TicketService:
             expires_at=expires_at,
         )
 
-    async def confirm(self, owner_id: uuid.UUID, pending_id: uuid.UUID, confirmed: bool) -> TicketConfirmResponse:
+    async def confirm(
+        self, owner_id: uuid.UUID, pending_id: uuid.UUID, confirmed: bool
+    ) -> TicketConfirmResponse:
         if not confirmed:
-            raise AppError("CONFIRMATION_REQUIRED", "Ticket creation requires explicit confirmation.", 409)
+            raise AppError(
+                "CONFIRMATION_REQUIRED",
+                "Ticket creation requires explicit confirmation.",
+                409,
+            )
         action = await self.tickets.lock_pending(owner_id, pending_id)
         if not action or action.action_type != "create_ticket":
-            raise AppError("PENDING_ACTION_NOT_FOUND", "The pending ticket action was not found.", 404)
+            raise AppError(
+                "PENDING_ACTION_NOT_FOUND",
+                "The pending ticket action was not found.",
+                404,
+            )
         expected_hash = hashlib.sha256(str(action.id).encode()).hexdigest()
         if action.confirmation_token_hash != expected_hash:
             raise AppError("CONFIRMATION_INVALID", "The ticket confirmation is invalid.", 409)
         idempotency_key = str(action.id)
         if action.consumed_at:
-            raise AppError("CONFIRMATION_ALREADY_USED", "The ticket confirmation was already used.", 409)
+            raise AppError(
+                "CONFIRMATION_ALREADY_USED",
+                "The ticket confirmation was already used.",
+                409,
+            )
         if self.tickets.is_expired(action):
             raise AppError("CONFIRMATION_EXPIRED", "The ticket confirmation has expired.", 409)
         existing = await self.tickets.find_ticket(owner_id, idempotency_key)
         if existing:
-            raise AppError("CONFIRMATION_ALREADY_USED", "The ticket confirmation was already used.", 409)
+            raise AppError(
+                "CONFIRMATION_ALREADY_USED",
+                "The ticket confirmation was already used.",
+                409,
+            )
         order_number = action.payload.get("order_number")
         order = (
             await self.orders.get_by_number(owner_id, order_number)

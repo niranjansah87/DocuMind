@@ -29,16 +29,32 @@ class IngestionService:
         self.repository = DocumentRepository(session)
         self.provider = OpenAICompatibleProvider(settings)
 
-    async def ingest(self, owner_id: uuid.UUID, filename: str | None, content_type: str | None, content: bytes) -> IngestionResult:
+    async def ingest(
+        self,
+        owner_id: uuid.UUID,
+        filename: str | None,
+        content_type: str | None,
+        content: bytes,
+    ) -> IngestionResult:
+        """doc-mind-ai: Ingestion pipeline orchestrating validation, deduplication, parsing, chunking, and embedding."""
         upload = validate_upload(filename, content_type, content, self.settings.max_upload_bytes)
         content_hash = hashlib.sha256(upload.content).hexdigest()
         existing = await self.repository.find_duplicate(owner_id, content_hash)
         if existing:
             return IngestionResult(existing, True, await self.repository.count_chunks(existing.id))
         parsed = parse_document(upload)
-        chunks = chunk_text(parsed.text, self.settings.chunk_size_tokens, self.settings.chunk_overlap_tokens)
+        chunks = chunk_text(
+            parsed.text,
+            self.settings.chunk_size_tokens,
+            self.settings.chunk_overlap_tokens,
+            pages=parsed.pages,
+        )
         if not chunks:
-            raise AppError("DOCUMENT_UNPARSEABLE", "The document contains no extractable text.", 422)
+            raise AppError(
+                "DOCUMENT_UNPARSEABLE",
+                "The document contains no extractable text.",
+                422,
+            )
         document = Document(
             owner_id=owner_id,
             filename=upload.filename,
@@ -64,6 +80,9 @@ class IngestionService:
                 chunk_index=chunk.index,
                 text=chunk.text,
                 token_count=chunk.token_count,
+                section_title=chunk.section_title,
+                page_start=chunk.page_start,
+                page_end=chunk.page_end,
                 embedding=vector,
                 embedding_model=self.settings.embedding_model,
                 chunk_size_tokens=self.settings.chunk_size_tokens,

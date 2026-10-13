@@ -1,81 +1,138 @@
-# Deployment and Local Operations
+# Deployment and Operations Guide - DocuMind
 
-## 1. Required reviewer experience
+This document details operations, local setup (with and without Docker), and production deployment for **DocuMind**.
 
-From a clean clone: 1. Copy `.env.example` to `.env`. 2. Add the
-required API key and retain safe local defaults. 3. Run
-`docker compose up --build`. 4. Open the frontend URL printed/documented
-in README. 5. Upload the sample document and test document, order and
-unknown questions.
+---
 
-No manual PostgreSQL installation, manual extension setup, or ad hoc
-seed command should be required unless explicitly automated and
-documented.
+## 1. Operating Modes
 
-## 2. Proposed containers
+DocuMind supports three operating environments:
 
--   `db`: PostgreSQL image with pgvector support; persistent named
-    volume; health check.
--   `api`: FastAPI app; waits for database health; runs
-    migrations/extension initialization; exposes API port.
--   `web`: Next.js app; depends on API availability as appropriate; uses
-    a configurable backend base URL.
+1. **Local Development (Native / Without Docker):** Direct execution using Python virtual environments (`uv`) and Node.js (`npm`).
+2. **Containerized (Docker Compose):** Multi-container stack (`db`, `api`, `web`) started with a single command.
+3. **Production Deployment (Nginx + Systemd):** Single-domain reverse proxy (`documind.niranjansah87.com.np`) with SSL and hidden internal backend.
 
-Only necessary host ports should be published. The database can remain
-on the internal Compose network if local DB access is not needed.
+---
 
-## 3. Configuration
+## 2. Local Setup Without Docker
 
-`.env.example` should enumerate every required and optional variable
-used by code and Compose. Proposed categories: - Database:
-`POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DATABASE_URL`. -
-Provider: primary LLM API key/model, embedding API key/model if
-separate, fallback model/key. - RAG: chunk sizes, overlap, top-k,
-similarity threshold, retrieval strategy, reranker toggle. - Safety:
-upload limit, request max length, max tool steps, tool timeout, retry
-count, max output tokens/cost budget. - Runtime: API host/port, frontend
-port, CORS origins, log level, environment.
+This is the recommended workflow for developing on Windows, macOS, or Linux without container overhead.
 
-Avoid defining duplicate variables unless there is a clear reason. If
-one provider key serves both embeddings and generation, document it.
+### 2.1 Prerequisites
+* **Python 3.12+** with [`uv`](https://docs.astral.sh/uv/) installed.
+* **Node.js 22+** and [`pnpm`](https://pnpm.io/).
+* **PostgreSQL 16** with `pgvector` extension installed and running locally on port 5432.
+* An OpenAI API key with access to chat and embedding models.
 
-## 4. Database readiness and migrations
+### 2.2 Database Initialization
+Ensure PostgreSQL is running and initialize the database:
+```sql
+CREATE DATABASE documind;
+\c documind;
+CREATE EXTENSION IF NOT EXISTS vector;
+```
 
--   Use a PostgreSQL image/build that includes pgvector.
--   Run `CREATE EXTENSION IF NOT EXISTS vector` through an idempotent
-    migration/init path.
--   API should retry startup connection briefly or depend on Compose
-    health check.
--   Prefer migrations over ad hoc schema creation at every app startup.
--   Seed orders with a repeatable script/migration or one-time seed
-    process protected against duplicate rows.
+### 2.3 Environment Setup
+Copy `.env.example` to `.env` in the repository root:
+```bash
+cp .env.example .env
+```
+Ensure `DATABASE_URL` and `OPENAI_API_KEY` are configured properly.
 
-## 5. Development and verification commands
+### 2.4 Quick Start: Run Everything with One Command
+From repository root:
+```bash
+pnpm install
+pnpm dev
+```
+Runs both FastAPI backend (port 8888) and Next.js frontend (port 7777) simultaneously in one terminal with colored prefix tags.
 
-Document actual commands after scaffold, expected to include: -
-`docker compose up --build` - `docker compose down` -
-`docker compose logs -f api` - `docker compose exec api pytest -q` -
-`docker compose exec api ...` for migrations only if needed - frontend
-lint/type-check/build command.
+### 2.5 Running Services Individually
 
-## 6. Clean-machine verification
+#### Backend API
+```bash
+cd apps/api
+uv sync --frozen
+uv run alembic upgrade head
+uv run python -m app.seed
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8888 --reload
+```
+API endpoints will be live at:
+* Dashboard & Landing Page: `http://127.0.0.1:8888/`
+* Liveness: `http://127.0.0.1:8888/health`
+* Readiness: `http://127.0.0.1:8888/ready`
+* OpenAPI Docs: `http://127.0.0.1:8888/docs`
 
-Before submission: - Use a fresh clone or clean directory. - Remove old
-volumes if validating first-run initialization (this deletes local demo
-data). - Start from `.env.example`. - Check health/readiness. - Upload
-sample document via UI. - Ask a known question and verify answer +
-citation. - Ask order status for a seeded order and verify tool route +
-DB-backed status. - Ask an unsupported question and verify abstention. -
-Trigger a tool failure in a test and verify safe output. - Check no API
-key appears in logs or built frontend. - Confirm README links and
-commands work.
+#### Frontend Web Application
+In a separate terminal:
+```bash
+cd apps/web
+pnpm install
+pnpm run dev
+```
+The application will be accessible at `http://localhost:7777`.
+Internal rewrites in Next.js automatically forward `/api/*`, `/health`, and `/ready` to `http://127.0.0.1:8888`.
 
-## 7. Troubleshooting section to include in final README
+---
 
--   Database unhealthy: inspect db logs and connection URL/credentials.
--   pgvector missing: verify image/extension initialization.
--   Embedding API failure: check key, quota, provider connectivity and
-    logs.
--   Empty PDF extraction: scanned PDFs may need OCR; report limitation.
--   CORS error: align configured frontend origin and API CORS allowlist.
--   Port conflict: document supported port overrides.
+## 3. Containerized Deployment (Docker Compose)
+
+Prerequisites: Docker Engine/Desktop with Compose plugin.
+
+1. Ensure `.env` is configured.
+2. Build and launch all services:
+   ```bash
+   docker compose up --build
+   ```
+3. Stop services:
+   ```bash
+   docker compose down
+   # To also delete the PostgreSQL volume:
+   docker compose down -v
+   ```
+
+---
+
+## 4. Production Deployment (Nginx Reverse Proxy)
+
+### 4.1 Architecture
+* **Domain:** `documind.niranjansah87.com.np`
+* **Nginx Reverse Proxy:** Routes all public HTTPS traffic.
+* **Next.js Frontend:** Runs on `127.0.0.1:7777` via `documind-web.service`.
+* **FastAPI Backend:** Runs on `127.0.0.1:8888` via `documind-api.service`.
+* **Hidden Backend:** No public backend domain or open port 8888 exists. All API requests are proxied internally via `https://documind.niranjansah87.com.np/api/v1/...`.
+
+### 4.2 Initial Setup
+Execute the provisioning script:
+```bash
+cd /var/www/documind
+chmod +x deploy/*.sh
+sudo ./deploy/deploy.sh
+```
+
+### 4.3 Routine Rebuilds
+For ongoing updates after code pushes:
+```bash
+./deploy/build.sh
+```
+
+---
+
+## 5. Operations & Health Checks
+
+| Check | Target | Expected Status |
+| :--- | :--- | :--- |
+| Process Liveness | `GET /health` | `{"status":"ok"}` (HTTP 200) |
+| Database & pgvector Readiness | `GET /ready` | `{"status":"ready","database":"connected","vector_extension":"available"}` (HTTP 200) |
+| Ingestion Status | `GET /api/v1/documents` | List of indexed documents in scope |
+| Systemd API Daemon | `systemctl status documind-api` | `active (running)` |
+| Systemd Web Daemon | `systemctl status documind-web` | `active (running)` |
+
+---
+
+## 6. Troubleshooting
+
+* **Backend port conflict:** If port 8888 is occupied, adjust `API_PORT` in `.env` and `documind.conf`.
+* **pgvector extension error:** Run `CREATE EXTENSION IF NOT EXISTS vector;` manually in PostgreSQL using superuser privileges.
+* **SSE streaming delays:** Confirm `proxy_buffering off;` and `chunked_transfer_encoding on;` are present in Nginx for `location /api/`.
+* **CORS error:** Ensure `CORS_ORIGINS` in `.env` includes `https://documind.niranjansah87.com.np`.

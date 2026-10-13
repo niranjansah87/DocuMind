@@ -1,0 +1,81 @@
+name: DocuMind CI
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-quality:
+    name: Backend Quality & Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.8.22"
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        working-directory: apps/api
+        run: uv sync --frozen
+
+      - name: Run Ruff Linting
+        working-directory: apps/api
+        run: uv run ruff check app tests
+
+      - name: Run Mypy Typecheck
+        working-directory: apps/api
+        run: uv run mypy app tests
+
+      - name: Run Pytest Suite
+        working-directory: apps/api
+        run: uv run pytest
+
+  frontend-quality:
+    name: Frontend Quality & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.5.2
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run TypeScript Typecheck
+        working-directory: apps/web
+        run: npm run typecheck
+
+      - name: Run ESLint
+        working-directory: apps/web
+        run: npm run lint
+
+      - name: Build Next.js Production Bundle
+        working-directory: apps/web
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+        run: npm run build
+

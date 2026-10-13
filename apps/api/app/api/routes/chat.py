@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator
@@ -25,9 +26,21 @@ def event(name: str, payload: object) -> str:
 
 async def stream_response(response: ChatResponse) -> AsyncIterator[str]:
     yield event("status", {"route": response.route, "stage": "answering"})
-    yield event("token", {"text": response.answer})
+    words = response.answer.split(" ")
+    for i, word in enumerate(words):
+        suffix = " " if i < len(words) - 1 else ""
+        yield event("token", {"text": word + suffix})
+        await asyncio.sleep(0.015)
     yield event("citations", [citation.model_dump() for citation in response.citations])
-    yield event("done", {"route": response.route, "abstained": response.abstained, "latency_ms": response.latency_ms})
+    yield event(
+        "done",
+        {
+            "route": response.route,
+            "abstained": response.abstained,
+            "latency_ms": response.latency_ms,
+            "answer": response.answer,
+        },
+    )
 
 
 @router.post("/chat", response_class=StreamingResponse)
@@ -38,6 +51,7 @@ async def chat(
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> StreamingResponse:
+    """doc-mind-ai: Stream conversational RAG answers or tool responses via Server-Sent Events (SSE)."""
     if len(payload.message) > settings.max_query_chars:
         raise AppError("QUERY_TOO_LONG", "The question exceeds the configured length limit.", 422)
     decision = route_message(payload.message)
@@ -46,6 +60,7 @@ async def chat(
         response = await service.answer_order(owner_id, decision.order_number)
         content = stream_response(response)
     else:
+
         async def rag_events() -> AsyncIterator[str]:
             try:
                 async for name, data in service.stream_rag(

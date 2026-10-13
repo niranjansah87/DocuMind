@@ -30,7 +30,9 @@ async def order_status(
     try:
         return await OrderService(session).get_status(owner_id, request.order_number)
     except ToolUnavailableError as exc:
-        raise AppError("ORDER_TOOL_UNAVAILABLE", "Order status is temporarily unavailable.", 503) from exc
+        raise AppError(
+            "ORDER_TOOL_UNAVAILABLE", "Order status is temporarily unavailable.", 503
+        ) from exc
 
 
 @router.post("/tickets/prepare", response_model=TicketPrepareResponse, status_code=201)
@@ -50,4 +52,6 @@ async def confirm_ticket(
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> TicketConfirmResponse:
-    return await TicketService(session, settings).confirm(owner_id, request.pending_action_id, request.confirmed)
+    return await TicketService(session, settings).confirm(
+        owner_id, request.pending_action_id, request.confirmed
+    )

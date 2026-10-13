@@ -11,7 +11,9 @@ class TicketRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def lock_pending(self, owner_id: uuid.UUID, pending_id: uuid.UUID) -> PendingAction | None:
+    async def lock_pending(
+        self, owner_id: uuid.UUID, pending_id: uuid.UUID
+    ) -> PendingAction | None:
         result = await self.session.execute(
             select(PendingAction)
             .where(PendingAction.id == pending_id, PendingAction.owner_id == owner_id)

@@ -13,13 +13,17 @@ class DocumentRepository:
 
     async def find_duplicate(self, owner_id: uuid.UUID, content_hash: str) -> Document | None:
         result = await self.session.execute(
-            select(Document).where(Document.owner_id == owner_id, Document.content_sha256 == content_hash)
+            select(Document).where(
+                Document.owner_id == owner_id, Document.content_sha256 == content_hash
+            )
         )
         return result.scalar_one_or_none()
 
     async def list_ready(self, owner_id: uuid.UUID) -> list[Document]:
         result = await self.session.execute(
-            select(Document).where(Document.owner_id == owner_id).order_by(Document.created_at.desc())
+            select(Document)
+            .where(Document.owner_id == owner_id)
+            .order_by(Document.created_at.desc())
         )
         return list(result.scalars())
 
@@ -71,7 +75,10 @@ class DocumentRepository:
             .order_by(distance)
             .limit(limit)
         )
-        return [(chunk, document, float(score)) for chunk, document, score in (await self.session.execute(statement)).all()]
+        return [
+            (chunk, document, float(score))
+            for chunk, document, score in (await self.session.execute(statement)).all()
+        ]
 
     async def retrieve_hybrid(
         self,
@@ -106,6 +113,7 @@ class DocumentRepository:
         for rank_index, (chunk, document, _) in enumerate(keyword_rows, 1):
             previous = fused.get(chunk.id)
             score = 1 / (60 + rank_index) + (previous[0] if previous else 0)
-            fused[chunk.id] = (score, chunk, document, 0.0)
+            distance = previous[3] if previous else 0.45
+            fused[chunk.id] = (score, chunk, document, distance)
         rows = sorted(fused.values(), key=lambda item: item[0], reverse=True)[:limit]
         return [(chunk, document, distance) for _, chunk, document, distance in rows]
