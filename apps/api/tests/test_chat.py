@@ -45,3 +45,9 @@ async def test_invalid_model_citation_causes_abstention() -> None:
     assert response.abstained is True
     assert response.answer == UNKNOWN_ANSWER
     assert response.citations == []
+
+
+def test_streamed_json_answer_prefix_handles_split_escapes() -> None:
+    raw = '{"answer":"A quoted \\"policy\\" line\\ncontinues'
+
+    assert ChatService._answer_prefix(raw) == 'A quoted "policy" line\ncontinues'

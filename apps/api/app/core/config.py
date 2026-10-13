@@ -1,17 +1,21 @@
 from functools import lru_cache
+from pathlib import Path
+from typing import Annotated
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+ROOT_ENV = Path(__file__).resolve().parents[4] / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
+    model_config = SettingsConfigDict(env_file=(ROOT_ENV, ".env"), extra="ignore", case_sensitive=False)
 
     app_env: str = "development"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     database_url: str = "postgresql+asyncpg://documind:documind-local-only@localhost:5432/documind"
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
     llm_model: str = "gpt-4.1-mini"

@@ -1,4 +1,14 @@
-import type { ApiError, Citation, DocumentItem, StreamResult, UploadResult } from "./types";
+import type {
+  ApiError,
+  Citation,
+  CreatedTicket,
+  DocumentDetail,
+  DocumentItem,
+  PendingTicket,
+  StreamResult,
+  TicketDraft,
+  UploadResult,
+} from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -31,6 +41,37 @@ export async function uploadDocument(file: File): Promise<UploadResult> {
   return response.json() as Promise<UploadResult>;
 }
 
+export async function getDocument(documentId: string): Promise<DocumentDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/documents/${documentId}`, { cache: "no-store" });
+  if (!response.ok) throw new Error(await errorMessage(response));
+  return response.json() as Promise<DocumentDetail>;
+}
+
+export async function deleteDocument(documentId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/documents/${documentId}`, { method: "DELETE" });
+  if (!response.ok) throw new Error(await errorMessage(response));
+}
+
+export async function prepareTicket(draft: TicketDraft): Promise<PendingTicket> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/tickets/prepare`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(draft),
+  });
+  if (!response.ok) throw new Error(await errorMessage(response));
+  return response.json() as Promise<PendingTicket>;
+}
+
+export async function confirmTicket(pendingActionId: string): Promise<CreatedTicket> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/tickets/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pending_action_id: pendingActionId, confirmed: true }),
+  });
+  if (!response.ok) throw new Error(await errorMessage(response));
+  return response.json() as Promise<CreatedTicket>;
+}
+
 type EventBlock = { event: string; data: string };
 
 function parseBlock(block: string): EventBlock | null {
@@ -48,6 +89,7 @@ export async function streamChat(
   documentIds: string[],
   onToken: (token: string) => void,
   signal: AbortSignal,
+  onStatus?: (stage: string) => void,
 ): Promise<StreamResult> {
   const response = await fetch(`${API_BASE_URL}/api/v1/chat`, {
     method: "POST",
@@ -78,12 +120,20 @@ export async function streamChat(
         const token = String(payload.text ?? "");
         answer += token;
         onToken(answer);
+      } else if (parsed.event === "replace" && !Array.isArray(payload)) {
+        answer = String(payload.text ?? "");
+        onToken(answer);
+      } else if (parsed.event === "status" && !Array.isArray(payload)) {
+        onStatus?.(String(payload.stage ?? "answering"));
       } else if (parsed.event === "citations" && Array.isArray(payload)) {
         citations = payload;
       } else if (parsed.event === "done" && !Array.isArray(payload)) {
         route = String(payload.route ?? route);
         abstained = Boolean(payload.abstained);
         latencyMs = Number(payload.latency_ms ?? 0);
+        answer = String(payload.answer ?? answer);
+      } else if (parsed.event === "error" && !Array.isArray(payload)) {
+        throw new Error(String(payload.message ?? "The answer service is unavailable."));
       }
     }
     if (done) break;
