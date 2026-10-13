@@ -29,9 +29,7 @@ class TicketService:
         if request.order_number and not await self.orders.get_by_number(
             owner_id, request.order_number
         ):
-            raise AppError(
-                "ORDER_NOT_FOUND", f"Order {request.order_number} was not found.", 404
-            )
+            raise AppError("ORDER_NOT_FOUND", f"Order {request.order_number} was not found.", 404)
         pending_id = uuid.uuid4()
         expires_at = datetime.now(UTC) + timedelta(
             seconds=self.settings.ticket_confirmation_ttl_seconds
@@ -42,9 +40,7 @@ class TicketService:
             owner_id=owner_id,
             action_type="create_ticket",
             payload=payload,
-            confirmation_token_hash=hashlib.sha256(
-                str(pending_id).encode()
-            ).hexdigest(),
+            confirmation_token_hash=hashlib.sha256(str(pending_id).encode()).hexdigest(),
             expires_at=expires_at,
         )
         self.session.add(action)
@@ -74,9 +70,7 @@ class TicketService:
             )
         expected_hash = hashlib.sha256(str(action.id).encode()).hexdigest()
         if action.confirmation_token_hash != expected_hash:
-            raise AppError(
-                "CONFIRMATION_INVALID", "The ticket confirmation is invalid.", 409
-            )
+            raise AppError("CONFIRMATION_INVALID", "The ticket confirmation is invalid.", 409)
         idempotency_key = str(action.id)
         if action.consumed_at:
             raise AppError(
@@ -85,9 +79,7 @@ class TicketService:
                 409,
             )
         if self.tickets.is_expired(action):
-            raise AppError(
-                "CONFIRMATION_EXPIRED", "The ticket confirmation has expired.", 409
-            )
+            raise AppError("CONFIRMATION_EXPIRED", "The ticket confirmation has expired.", 409)
         existing = await self.tickets.find_ticket(owner_id, idempotency_key)
         if existing:
             raise AppError(

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Icon } from "@/components/icons";
 import {
   confirmTicket,
@@ -30,6 +31,14 @@ const DEFAULT_SUGGESTIONS = [
   "What is the return process?",
 ];
 
+/**
+ * doc-mind-ai: Single-page DocuMind workspace.
+ *
+ * Provides a responsive three-pane layout featuring:
+ * 1. Document upload area with drag-and-drop, validation, and real-time status indicators.
+ * 2. Conversational chat interface displaying streamed tokens and intent routing badges.
+ * 3. Grounded citation list and inspector with chunk excerpts, page numbers, and section titles.
+ */
 export default function WorkspacePage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [meta, setMeta] = useState<AppMeta | null>(null);
@@ -274,7 +283,12 @@ export default function WorkspacePage() {
         <section className="chat-area">
           <div className="chat-messages-container">
             {messages.length === 0 ? (
-              <div className="chat-welcome-empty">
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+                className="chat-welcome-empty"
+              >
                 <div className="welcome-avatar">
                   <Image src="/logo_mark.png" alt="DocuMind Logo" width={48} height={48} priority />
                 </div>
@@ -285,30 +299,49 @@ export default function WorkspacePage() {
                 </p>
                 <div className="welcome-suggestions">
                   {DEFAULT_SUGGESTIONS.map((item) => (
-                    <button key={item} className="welcome-pill" onClick={() => void sendQuestion(item)}>
+                    <motion.button
+                      key={item}
+                      className="welcome-pill"
+                      onClick={() => void sendQuestion(item)}
+                      whileHover={{ scale: 1.015, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ duration: 0.16 }}
+                    >
                       <span>{item}</span>
                       <Icon name="chevron-right" size={14} />
-                    </button>
+                    </motion.button>
                   ))}
                 </div>
-              </div>
+              </motion.div>
             ) : (
               messages.map((message) => {
                 if (message.role === "user") {
                   return (
-                    <div key={message.id} className="user-message-row">
+                    <motion.div
+                      key={message.id}
+                      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                      className="user-message-row"
+                    >
                       <div className="user-message-content">
                         <div className="user-message-bubble">{message.text}</div>
                         <div className="message-timestamp">{message.time ?? "10:24 AM"}</div>
                       </div>
                       <div className="user-msg-avatar">N</div>
-                    </div>
+                    </motion.div>
                   );
                 }
 
                 // Assistant message
                 return (
-                  <div key={message.id} className="assistant-message-row">
+                  <motion.div
+                    key={message.id}
+                    initial={{ opacity: 0, y: 14, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+                    className="assistant-message-row"
+                  >
                     <div className="assistant-msg-avatar">
                       <Image src="/logo_mark.png" alt="DocuMind" width={32} height={32} />
                     </div>
@@ -401,7 +434,7 @@ export default function WorkspacePage() {
                         </div>
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })
             )}
@@ -413,15 +446,18 @@ export default function WorkspacePage() {
             <span className="suggested-label">Suggested questions</span>
             <div className="suggested-pills-row">
               {DEFAULT_SUGGESTIONS.map((item) => (
-                <button
+                <motion.button
                   key={item}
                   className="suggested-pill-card"
                   onClick={() => void sendQuestion(item)}
                   disabled={busy}
+                  whileHover={{ y: -2, scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ duration: 0.16 }}
                 >
                   <span>{item}</span>
                   <Icon name="chevron-right" size={13} />
-                </button>
+                </motion.button>
               ))}
             </div>
           </div>
@@ -502,14 +538,17 @@ export default function WorkspacePage() {
                     <span className="toggle-label">Web search</span>
                   </label>
 
-                  <button
+                  <motion.button
                     type="submit"
                     className="send-arrow-button"
                     disabled={!question.trim() || busy}
                     title="Send message"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.94 }}
+                    transition={{ duration: 0.15 }}
                   >
                     <Icon name="arrow-up" size={18} />
-                  </button>
+                  </motion.button>
                 </div>
               </div>
             </form>
@@ -517,8 +556,15 @@ export default function WorkspacePage() {
         </section>
 
         {/* Right Inspector Panel matching Documind_workspace.png */}
-        {inspectorOpen && (
-          <aside className="workspace-inspector">
+        <AnimatePresence>
+          {inspectorOpen && (
+            <motion.aside
+              initial={{ opacity: 0, x: 28 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 28 }}
+              transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+              className="workspace-inspector"
+            >
             {/* Inspector Tabs */}
             <div className="inspector-tabs-header">
               <div className="inspector-tabs-group">
@@ -688,11 +734,13 @@ export default function WorkspacePage() {
                 </div>
               )}
             </div>
-          </aside>
+          </motion.aside>
         )}
-      </div>
+      </AnimatePresence>
+    </div>
 
-      {/* Ticket Dialog Modal */}
+    {/* Ticket Dialog Modal */}
+    <AnimatePresence>
       {ticketModalOpen && (
         <TicketDialog
           meta={meta}
@@ -711,8 +759,9 @@ export default function WorkspacePage() {
           }}
         />
       )}
-    </main>
-  );
+    </AnimatePresence>
+  </main>
+);
 }
 
 function TicketDialog({
@@ -761,8 +810,24 @@ function TicketDialog({
   };
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <div className="ticket-modal-card">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      className="modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 12 }}
+        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+        className="ticket-modal-card"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header-row">
           <div className="modal-title-wrap">
             <span className="modal-kicker">Controlled Tool Action • {meta?.application_name || "DocuMind"}</span>
@@ -847,7 +912,7 @@ function TicketDialog({
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

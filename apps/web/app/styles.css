@@ -40,6 +40,14 @@
   --shadow-lg: 0 12px 16px -4px rgba(16, 24, 40, 0.08), 0 4px 6px -2px rgba(16, 24, 40, 0.03);
   --shadow-float: 0 4px 20px rgba(16, 24, 40, 0.08);
 
+  /* Motion & Easing Curves */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --transition-fast: 150ms var(--ease-out);
+  --transition-normal: 220ms var(--ease-out);
+
   --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -47,6 +55,10 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 html,
@@ -58,6 +70,55 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Responsive Button Press Motion */
+button,
+.button,
+a[role="button"] {
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+  transition: transform 160ms var(--ease-out), background-color 160ms ease, box-shadow 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+button:active:not(:disabled),
+.button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(61, 76, 255, 0.22);
+}
+
+/* Keyframes for Smooth Feedback */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.96); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float-subtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 
 button,
 input,
@@ -826,6 +887,30 @@ a {
   40% {
     transform: scale(1);
     opacity: 1;
+  }
+}
+
+/* ChatGPT-grade Streaming Cursor */
+.chatgpt-streaming-cursor {
+  display: inline-block;
+  width: 7.5px;
+  height: 15px;
+  margin-left: 4px;
+  vertical-align: -2px;
+  background-color: var(--primary);
+  border-radius: 1.5px;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
+  animation: chatgptCursorBlink 0.75s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes chatgptCursorBlink {
+  0%, 100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 0.15;
+    transform: scaleY(0.8);
   }
 }
 

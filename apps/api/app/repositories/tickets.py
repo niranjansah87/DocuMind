@@ -21,9 +21,7 @@ class TicketRepository:
         )
         return result.scalar_one_or_none()
 
-    async def find_ticket(
-        self, owner_id: uuid.UUID, idempotency_key: str
-    ) -> SupportTicket | None:
+    async def find_ticket(self, owner_id: uuid.UUID, idempotency_key: str) -> SupportTicket | None:
         result = await self.session.execute(
             select(SupportTicket).where(
                 SupportTicket.owner_id == owner_id,

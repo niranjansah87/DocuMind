@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "motion/react";
 import { Icon } from "@/components/icons";
 import { getEvaluation } from "@/lib/api";
 import type { EvaluationData } from "@/lib/types";
@@ -228,15 +229,18 @@ export default function EvaluationPage() {
           </p>
         </div>
 
-        <button
+        <motion.button
           className="eval-run-btn"
           onClick={handleRunEvaluation}
           disabled={running}
           title="Run RAG benchmark evaluation"
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.96 }}
+          transition={{ duration: 0.15 }}
         >
           <Icon name="play" size={15} />
           <span>{running ? "Evaluating..." : "Run Evaluation"}</span>
-        </button>
+        </motion.button>
       </header>
 
       {runMessage && (
@@ -406,12 +410,22 @@ export default function EvaluationPage() {
                   {/* Pair 1 */}
                   <div className="chart-bar-pair">
                     <div className="bars-cluster">
-                      <div className="bar-pillar blue" style={{ height: "73%" }}>
+                      <motion.div
+                        className="bar-pillar blue"
+                        initial={{ height: "0%" }}
+                        animate={{ height: "73%" }}
+                        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                      >
                         <span className="bar-tooltip">73%</span>
-                      </div>
-                      <div className="bar-pillar purple" style={{ height: "87%" }}>
+                      </motion.div>
+                      <motion.div
+                        className="bar-pillar purple"
+                        initial={{ height: "0%" }}
+                        animate={{ height: "87%" }}
+                        transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+                      >
                         <span className="bar-tooltip">87%</span>
-                      </div>
+                      </motion.div>
                     </div>
                     <span className="bar-cat-label">Correct Chunk Retrieved</span>
                   </div>
@@ -419,12 +433,22 @@ export default function EvaluationPage() {
                   {/* Pair 2 */}
                   <div className="chart-bar-pair">
                     <div className="bars-cluster">
-                      <div className="bar-pillar blue" style={{ height: "67%" }}>
+                      <motion.div
+                        className="bar-pillar blue"
+                        initial={{ height: "0%" }}
+                        animate={{ height: "67%" }}
+                        transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                      >
                         <span className="bar-tooltip">67%</span>
-                      </div>
-                      <div className="bar-pillar purple" style={{ height: "80%" }}>
+                      </motion.div>
+                      <motion.div
+                        className="bar-pillar purple"
+                        initial={{ height: "0%" }}
+                        animate={{ height: "80%" }}
+                        transition={{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                      >
                         <span className="bar-tooltip">80%</span>
-                      </div>
+                      </motion.div>
                     </div>
                     <span className="bar-cat-label">Context-Supported Answers</span>
                   </div>

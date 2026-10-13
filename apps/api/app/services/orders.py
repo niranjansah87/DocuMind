@@ -12,9 +12,7 @@ class OrderService:
     def __init__(self, session: AsyncSession) -> None:
         self.repository = OrderRepository(session)
 
-    async def get_status(
-        self, owner_id: uuid.UUID, order_number: str
-    ) -> OrderStatusResponse:
+    async def get_status(self, owner_id: uuid.UUID, order_number: str) -> OrderStatusResponse:
         try:
             order = await self.repository.get_by_number(owner_id, order_number)
         except SQLAlchemyError as exc:

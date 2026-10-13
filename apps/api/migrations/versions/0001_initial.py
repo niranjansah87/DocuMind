@@ -69,13 +69,9 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
-        sa.UniqueConstraint(
-            "document_id", "chunk_index", "chunk_size_tokens", "overlap_tokens"
-        ),
+        sa.UniqueConstraint("document_id", "chunk_index", "chunk_size_tokens", "overlap_tokens"),
     )
-    op.create_index(
-        "ix_document_chunks_document_id", "document_chunks", ["document_id"]
-    )
+    op.create_index("ix_document_chunks_document_id", "document_chunks", ["document_id"])
     op.create_table(
         "orders",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
@@ -93,9 +89,7 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("ticket_number", sa.String(32), nullable=False, unique=True),
         sa.Column("owner_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column(
-            "order_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("orders.id")
-        ),
+        sa.Column("order_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("orders.id")),
         sa.Column("subject", sa.String(200), nullable=False),
         sa.Column("description", sa.Text(), nullable=False),
         sa.Column("status", sa.String(20), nullable=False, server_default="open"),

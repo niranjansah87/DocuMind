@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Icon } from "@/components/icons";
 import { deleteDocument, getAppMeta, listDocuments, uploadDocument } from "@/lib/api";
 import type { AppMeta, DocumentItem } from "@/lib/types";
@@ -275,14 +276,17 @@ export default function DocumentsPage() {
               {meta ? ` • Engine: ${meta.embedding_model}` : ""}
             </p>
           </div>
-          <button
+          <motion.button
             className="top-banner-upload-button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ duration: 0.15 }}
           >
             <Icon name="cloud-upload" size={18} />
             <span>{uploading ? "Uploading..." : "Upload Document"}</span>
-          </button>
+          </motion.button>
           <input
             ref={fileInputRef}
             type="file"
@@ -386,14 +390,17 @@ export default function DocumentsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredDocs.map((doc) => {
+              {filteredDocs.map((doc, idx) => {
                 const isSelected = selectedDoc?.document_id === doc.document_id;
                 const isPdf = doc.filename.toLowerCase().endsWith(".pdf");
                 const chunkCount = doc.page_count ? doc.page_count * 2 : 12;
 
                 return (
-                  <tr
+                  <motion.tr
                     key={doc.document_id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.18, delay: Math.min(idx * 0.03, 0.3) }}
                     className={`document-table-row ${isSelected ? "selected-row" : ""}`}
                     onClick={() => setSelectedDocId(doc.document_id)}
                   >
@@ -444,7 +451,7 @@ export default function DocumentsPage() {
                         </button>
                       </div>
                     </td>
-                  </tr>
+                  </motion.tr>
                 );
               })}
             </tbody>
@@ -470,8 +477,15 @@ export default function DocumentsPage() {
       </div>
 
       {/* Right Slide-out Detail Drawer matching documind_documents_page.png */}
-      {selectedDoc && (
-        <aside className="documents-detail-drawer">
+      <AnimatePresence>
+        {selectedDoc && (
+          <motion.aside
+            initial={{ opacity: 0, x: 28 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 28 }}
+            transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+            className="documents-detail-drawer"
+          >
           <div className="drawer-close-row">
             <button
               className="drawer-close-btn"
@@ -649,8 +663,9 @@ export default function DocumentsPage() {
               <span>View in chat →</span>
             </button>
           </div>
-        </aside>
+        </motion.aside>
       )}
-    </main>
-  );
+    </AnimatePresence>
+  </main>
+);
 }

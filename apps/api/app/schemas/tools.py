@@ -16,9 +16,7 @@ class OrderStatusRequest(BaseModel):
     def validate_order_number(cls, value: str) -> str:
         normalized = value.upper()
         if not ORDER_PATTERN.fullmatch(normalized):
-            raise ValueError(
-                "order_number must match ORD- followed by at least four digits"
-            )
+            raise ValueError("order_number must match ORD- followed by at least four digits")
         return normalized
 
 

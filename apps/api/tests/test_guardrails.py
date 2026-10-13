@@ -36,9 +36,7 @@ async def test_duplicate_upload_reuses_document_without_provider_call() -> None:
     service.settings = Settings()
     service.repository = DuplicateRepository()  # type: ignore[assignment]
 
-    result = await service.ingest(
-        DEMO_OWNER_ID, "policy.txt", "text/plain", b"policy text"
-    )
+    result = await service.ingest(DEMO_OWNER_ID, "policy.txt", "text/plain", b"policy text")
 
     assert result.duplicate is True
     assert result.chunk_count == 3
@@ -58,9 +56,7 @@ async def test_ticket_confirmation_replay_is_rejected() -> None:
     action = SimpleNamespace(
         id=pending_id,
         action_type="create_ticket",
-        confirmation_token_hash=__import__("hashlib")
-        .sha256(str(pending_id).encode())
-        .hexdigest(),
+        confirmation_token_hash=__import__("hashlib").sha256(str(pending_id).encode()).hexdigest(),
         consumed_at=datetime.now(UTC),
         expires_at=datetime.now(UTC) + timedelta(minutes=5),
     )

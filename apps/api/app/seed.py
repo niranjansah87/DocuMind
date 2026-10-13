@@ -22,12 +22,8 @@ async def seed_orders() -> None:
                 order_number=row["order_number"],
                 status=row["status"],
                 items=row["items"],
-                created_at=datetime.fromisoformat(
-                    row["created_at"].replace("Z", "+00:00")
-                ),
-                updated_at=datetime.fromisoformat(
-                    row["updated_at"].replace("Z", "+00:00")
-                ),
+                created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")),
+                updated_at=datetime.fromisoformat(row["updated_at"].replace("Z", "+00:00")),
             )
             await session.execute(
                 statement.on_conflict_do_update(

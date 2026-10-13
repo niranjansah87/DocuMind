@@ -29,9 +29,7 @@ class FakeRepository:
 
 
 class FakeOrderService:
-    async def get_status(
-        self, owner_id: uuid.UUID, order_number: str
-    ) -> OrderStatusResponse:
+    async def get_status(self, owner_id: uuid.UUID, order_number: str) -> OrderStatusResponse:
         return OrderStatusResponse(found=False, order_number=order_number)
 
 

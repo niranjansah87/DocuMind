@@ -11,9 +11,7 @@ class DocumentRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def find_duplicate(
-        self, owner_id: uuid.UUID, content_hash: str
-    ) -> Document | None:
+    async def find_duplicate(self, owner_id: uuid.UUID, content_hash: str) -> Document | None:
         result = await self.session.execute(
             select(Document).where(
                 Document.owner_id == owner_id, Document.content_sha256 == content_hash
@@ -35,19 +33,13 @@ class DocumentRepository:
         )
         return len(result.scalars().all())
 
-    async def get_owned(
-        self, owner_id: uuid.UUID, document_id: uuid.UUID
-    ) -> Document | None:
+    async def get_owned(self, owner_id: uuid.UUID, document_id: uuid.UUID) -> Document | None:
         result = await self.session.execute(
-            select(Document).where(
-                Document.owner_id == owner_id, Document.id == document_id
-            )
+            select(Document).where(Document.owner_id == owner_id, Document.id == document_id)
         )
         return result.scalar_one_or_none()
 
-    async def list_chunks(
-        self, owner_id: uuid.UUID, document_id: uuid.UUID
-    ) -> list[DocumentChunk]:
+    async def list_chunks(self, owner_id: uuid.UUID, document_id: uuid.UUID) -> list[DocumentChunk]:
         result = await self.session.execute(
             select(DocumentChunk)
             .join(Document, Document.id == DocumentChunk.document_id)

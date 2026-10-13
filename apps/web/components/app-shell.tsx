@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Icon } from "./icons";
 
 const navItems = [
@@ -63,29 +64,55 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               style={{ objectFit: "contain" }}
             />
           </Link>
-          <button className="sidebar-collapse-btn" aria-label="Collapse sidebar" title="Collapse sidebar">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="sidebar-collapse-btn"
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+          >
             <Icon name="chevron-up" size={16} />
-          </button>
+          </motion.button>
         </div>
 
         {/* New Chat Button */}
-        <button className="new-chat-button" onClick={handleNewChat} title="Start new chat (Ctrl+K)">
+        <motion.button
+          className="new-chat-button"
+          onClick={handleNewChat}
+          title="Start new chat (Ctrl+K)"
+          whileHover={{ scale: 1.01, boxShadow: "0 4px 14px rgba(61, 76, 255, 0.28)" }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+        >
           <div className="new-chat-label">
             <Icon name="plus" size={16} />
             <span>New Chat</span>
           </div>
           <span className="shortcut-badge">Ctrl K</span>
-        </button>
+        </motion.button>
 
         {/* Primary navigation */}
         <nav className="sidebar-nav" aria-label="Primary navigation">
           {navItems.map((item) => {
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             return (
-              <Link key={item.href} href={item.href} className={`sidebar-nav-link ${active ? "active" : ""}`}>
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`sidebar-nav-link ${active ? "active" : ""}`}
+                style={{ position: "relative" }}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="sidebar-active-indicator"
+                    className="sidebar-active-indicator"
+                    initial={false}
+                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                  />
+                )}
                 <Icon name={item.icon} size={18} />
-                <span className="sidebar-nav-text">{item.label}</span>
-                {item.badge && <span className="nav-beta-badge">{item.badge}</span>}
+                <span className="sidebar-nav-text" style={{ position: "relative", zIndex: 1 }}>{item.label}</span>
+                {item.badge && <span className="nav-beta-badge" style={{ position: "relative", zIndex: 1 }}>{item.badge}</span>}
               </Link>
             );
           })}
@@ -95,46 +122,58 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="recent-conversations-section">
           <div className="recent-heading">RECENT CONVERSATIONS</div>
           <div className="recent-list">
-            {recentConversations.map((item) => {
-              const isSelected = pathname === "/" && activeRecent === item.id;
-              return (
-                <div
-                  key={item.id}
-                  className={`recent-item ${isSelected ? "selected" : ""}`}
-                  onClick={() => handleSelectRecent(item)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleSelectRecent(item);
-                    }
-                  }}
-                >
-                  <div className="recent-info">
-                    <span className="recent-title">{item.title}</span>
-                    <span className="recent-time">{item.time}</span>
-                  </div>
-                  {isSelected && (
-                    <button
-                      className="recent-menu-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                      aria-label="Conversation options"
-                    >
-                      <Icon name="more" size={14} />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+            <AnimatePresence initial={false}>
+              {recentConversations.map((item, index) => {
+                const isSelected = pathname === "/" && activeRecent === item.id;
+                return (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2, delay: index * 0.04, ease: [0.23, 1, 0.32, 1] }}
+                    whileHover={{ x: 3 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`recent-item ${isSelected ? "selected" : ""}`}
+                    onClick={() => handleSelectRecent(item)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleSelectRecent(item);
+                      }
+                    }}
+                  >
+                    <div className="recent-info">
+                      <span className="recent-title">{item.title}</span>
+                      <span className="recent-time">{item.time}</span>
+                    </div>
+                    {isSelected && (
+                      <button
+                        className="recent-menu-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                        aria-label="Conversation options"
+                      >
+                        <Icon name="more" size={14} />
+                      </button>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </div>
         </div>
 
         {/* Bottom User Profile */}
         <div className="sidebar-user-footer">
-          <div className="user-profile-card">
+          <motion.div
+            whileHover={{ scale: 1.01, backgroundColor: "var(--ink-100)" }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className="user-profile-card"
+          >
             <div className="user-avatar">N</div>
             <div className="user-details">
               <span className="user-name">Niranjan Sah</span>
@@ -143,7 +182,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="user-dropdown-icon">
               <Icon name="chevron-down" size={14} />
             </div>
-          </div>
+          </motion.div>
         </div>
       </aside>
 
@@ -151,4 +190,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-

@@ -36,15 +36,12 @@ class IngestionService:
         content_type: str | None,
         content: bytes,
     ) -> IngestionResult:
-        upload = validate_upload(
-            filename, content_type, content, self.settings.max_upload_bytes
-        )
+        """doc-mind-ai: Ingestion pipeline orchestrating validation, deduplication, parsing, chunking, and embedding."""
+        upload = validate_upload(filename, content_type, content, self.settings.max_upload_bytes)
         content_hash = hashlib.sha256(upload.content).hexdigest()
         existing = await self.repository.find_duplicate(owner_id, content_hash)
         if existing:
-            return IngestionResult(
-                existing, True, await self.repository.count_chunks(existing.id)
-            )
+            return IngestionResult(existing, True, await self.repository.count_chunks(existing.id))
         parsed = parse_document(upload)
         chunks = chunk_text(
             parsed.text,
@@ -75,9 +72,7 @@ class IngestionService:
             existing = await self.repository.find_duplicate(owner_id, content_hash)
             if not existing:
                 raise
-            return IngestionResult(
-                existing, True, await self.repository.count_chunks(existing.id)
-            )
+            return IngestionResult(existing, True, await self.repository.count_chunks(existing.id))
         vectors = await self.provider.embed([chunk.text for chunk in chunks])
         self.session.add_all(
             DocumentChunk(

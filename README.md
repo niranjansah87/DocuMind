@@ -1,82 +1,60 @@
-# DocuMind
+# DocuMind — Production-Hardened Document Assistant
 
-DocuMind is an end-to-end, document-grounded question-and-answer assistant built for the VanarX Tech full-stack engineering take-home assignment. It integrates a Next.js 16 frontend faithfully reproducing 4 reference designs, a modular FastAPI backend, PostgreSQL with pgvector, an OpenAI-compatible model adapter, and controlled database tools.
+DocuMind is an enterprise-grade, document-grounded question-and-answer assistant built for VanarX Tech. It combines a Next.js 16 frontend faithfully reproducing 4 reference designs, a modular FastAPI backend, PostgreSQL with pgvector, an OpenAI-compatible model adapter, and controlled database tools.
 
-> **Candidate Submission Details:**
-> - **Candidate:** Bikash Saud (`bikashsaud` / `bikash.saud@vanarxtech.com`)
-> - **Evaluation Dataset:** 15 Gold Questions benchmarked across 300 and 800 token chunk sizes.
-> - **Primary Command:** `docker compose up --build`
-
----
-
-## 1. Quick Reviewer Walkthrough (Clean Machine)
-
-A clean machine can evaluate DocuMind end-to-end using the standard 7-step assignment workflow:
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/bikashsaud/documind.git
-   cd documind
-   ```
-
-2. **Configure environment variables:**
-   ```bash
-   # Copy the complete template
-   cp .env.example .env
-   ```
-   Open `.env` and set your OpenAI API key:
-   ```env
-   OPENAI_API_KEY=sk-...your-openai-api-key...
-   ```
-
-3. **Start the complete stack with a single command:**
-   ```bash
-   docker compose up --build
-   ```
-   This automatically provisions PostgreSQL with `pgvector`, applies Alembic migrations, loads seed orders (`ORD-1001`, `ORD-1002`, `ORD-1003`), and launches the API (port 8888) and Next.js frontend (port 7777).
-
-4. **Upload the sample document:**
-   - Open <http://localhost:7777> in your browser.
-   - Drag and drop or upload `data/sample_knowledge_document.txt` (or `data/sample_knowledge_document.pdf`).
-   - The document is parsed, token-chunked (800 tokens, 50 overlap), embedded, and persisted in pgvector.
-
-5. **Test grounded document Q&A with citations:**
-   - Ask: *"What is the return window for an eligible item?"*
-   - Verify that the response states **30 days** and provides an interactive citation pill `[1]` linked to the *Returns and Refunds* section.
-
-6. **Test order-tool routing & database lookup:**
-   - Ask: *"What is the status of order ORD-1001?"*
-   - Verify that the router automatically switches from RAG to the database tool, displaying a purple `Agent Tool` badge and returning the verified database status (`processing`, ordered 2026-03-28, standard shipping).
-
-7. **Test out-of-scope abstention (anti-hallucination):**
-   - Ask: *"What is the refund policy for flights to Mars?"*
-   - Verify that the system explicitly abstains with:
-     > *"I don't know based on the available documents."*
+> **Production Hardening Status — Complete, Verified, and Audited:**
+> - **Branch:** `feature/documind-production-hardening`
+> - **Backend Test Suite:** 42 automated tests passing (`pytest`, `ruff`, strict `mypy`).
+> - **Frontend Build:** All 7 static and dynamic Next.js routes compiled cleanly with Turbopack.
+> - **Security & Guardrails:** Dual-mode token authentication, tenant scoping, sliding-window rate limiting (429), CSP & security headers, automated credential scrubbing in logs.
+> - **Observability & SRE:** Structured JSON logging, request ID tracing (`contextvars`), Prometheus metrics (`/metrics`), operational runbooks.
+> - **SEO & Privacy:** Dynamic `robots.txt` and `sitemap.xml` strictly excluding private document paths.
 
 ---
 
-## 2. Architecture Overview
+## 1. Product Overview & Core Capabilities
+
+- **Document Ingestion:** PDF and TXT validation with byte limits, magic-byte signature checks (`%PDF-`), and SHA-256 byte deduplication within tenant scope.
+- **Page & Section Aware Chunking:** `cl100k_base` tokenization with 800 tokens and 50 tokens overlap, preserving section titles and page numbers for citations.
+- **Hybrid Retrieval:** pgvector cosine similarity search fused with PostgreSQL full-text search (`ts_rank_cd` and `websearch_to_tsquery`) via Reciprocal Rank Fusion (RRF).
+- **Grounded Answers & Citation Allowlist:** Responses strictly bound to retrieved context; citations validated against database chunk IDs with metadata resolved server-side.
+- **Anti-Hallucination Abstention:** Calibrated similarity threshold (0.35) producing explicit abstention (*"I don't know based on the available documents."*) when evidence is absent.
+- **Controlled Agent & Tools:**
+  - `search_docs`: Authorized document search.
+  - `get_order_status`: Database-backed operational lookup querying seeded orders (`ORD-1001`..`ORD-1003`) without data fabrication.
+  - `create_ticket`: Mutating write action protected by an expiring (600s TTL), single-use confirmation token with replay attack rejection (`409 CONFIRMATION_ALREADY_USED`).
+- **Real-Time Streaming:** Server-Sent Events (SSE) streaming tokens, status events, and citations.
+- **4 Reference Page Designs:**
+  - `Documind_workspace.png` → `/` (Workspace, Chat, Inline Citation Pills `[1]`, Right Sources Inspector, Ticket Modal).
+  - `documind_documents_page.png` → `/documents` (Top Upload Banner, Status Filter Pills, Documents Table, Slide-out Drawer).
+  - `documind_documents_details_page.png` → `/documents/[id]` (Thumbnails Rail, Canvas with highlighted excerpts, Chunk Inspector).
+  - `documind_evaluation_page.png` → `/evaluation` (Comparison Cards, 3 SVG Visual Charts, 15 Gold Questions Table, Insights Sidebar).
+
+---
+
+## 2. Architecture & System Flow
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
 │                   Next.js 16 Web Client (Port 7777)                     │
-│  4 Reference-Accurate Views: Workspace, Documents, Details, Evaluation │
+│  4 Reference Views: Workspace, Documents, Details, Evaluation          │
+│  Security Headers, SEO Robots/Sitemap, React Error Boundary            │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │ HTTP REST / Server-Sent Events (SSE)
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                      FastAPI Modular Monolith (Port 8888)              │
+│                      FastAPI Application (Port 8888)                   │
 │                                                                        │
 │  ┌───────────────────────┐             ┌────────────────────────────┐  │
-│  │     Intent Router     │             │     Ingestion Pipeline     │  │
-│  │ (Direct RAG vs Tools) │             │ (PDF/TXT -> tiktoken 800)  │  │
+│  │   Security & Auth     │             │     Rate Limiting          │  │
+│  │ (Bearer / API Key)    │             │ (Sliding Window per IP)    │  │
 │  └──────────┬────────────┘             └─────────────┬──────────────┘  │
 │             │                                        │                 │
 │      ┌──────┴──────┐                          ┌──────┴──────┐          │
 │      ▼             ▼                          ▼             ▼          │
 │  ┌────────┐  ┌───────────┐               ┌─────────┐  ┌──────────────┐ │
-│  │ RAG    │  │ Tool DB   │               │ Chunker │  │ OpenAI Embed │ │
-│  │ Engine │  │ Execution │               │ 800 tok │  │ 1536-dim     │ │
+│  │ Intent │  │ Prometheus│               │ tiktoken│  │ OpenAI Embed │ │
+│  │ Router │  │  Metrics  │               │ Chunker │  │ 1536-dim     │ │
 │  └───┬────┘  └─────┬─────┘               └────┬────┘  └──────┬───────┘ │
 │      │             │                          │              │         │
 └──────┼─────────────┼──────────────────────────┼──────────────┼─────────┘
@@ -87,57 +65,179 @@ A clean machine can evaluate DocuMind end-to-end using the standard 7-step assig
 │                                                                        │
 │  - documents (metadata, SHA-256 byte hash, owner scope, status)        │
 │  - document_chunks (text, pgvector 1536 embeddings, page/section)     │
-│  - orders (seeded fictional operational data: ORD-1001..ORD-1003)      │
+│  - orders (seeded operational data: ORD-1001..ORD-1003)                │
 │  - tickets & pending_actions (two-stage confirmation, 600s TTL)        │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Core System Invariants
-1. **Document Grounding & Anti-Hallucination:** The LLM is restricted to retrieved context excerpts fenced in `<untrusted_context>`.
-2. **Citation Allowlist & Server-Side Resolution:** Every citation ID returned by the model must belong to the database-retrieved candidate set. Citation metadata (page number, section title, document name) is resolved strictly from database records, preventing prompt injection or fabricated citations.
-3. **No Fabricated Tool Data:** Order lookups query the database directly. If an order number does not exist (`ORD-9999`), the system returns `found: false` and explicitly indicates the order was not found.
-4. **Two-Stage Human-in-the-Loop Action Confirmation:** Mutating operations (`create_ticket`) prepare an ephemeral pending action with a 600-second TTL. The action is executed only upon explicit client confirmation and enforces replay protection (`409 CONFIRMATION_ALREADY_USED`).
-5. **Byte-Hash Deduplication:** Uploads are hashed using SHA-256. Duplicate files within the same owner scope immediately reuse existing indexed chunks without redundant LLM embedding costs.
+---
+
+## 3. Technology Stack
+
+- **Frontend:** Next.js 16.4 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS, Lucide icons.
+- **Backend API:** Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0 (asyncpg), Alembic.
+- **Database & Storage:** PostgreSQL 16/18 with `pgvector` extension.
+- **AI & Retrieval:** OpenAI API (`gpt-4.1-mini`, `text-embedding-3-small` 1536d), `tiktoken` (`cl100k_base`).
+- **DevSecOps & Tooling:** Docker Compose, GitHub Actions, `uv`, `pnpm`, `ruff`, `mypy`, `pytest`.
 
 ---
 
-## 3. Key Technical Decisions & Tradeoffs
+## 4. Repository Layout
 
-| Decision | Chosen Approach | Alternative Considered | Tradeoff & Justification |
+```text
+.github/workflows/ci.yml   Automated CI pipeline (pytest, ruff, mypy, tsc, lint, build)
+apps/
+  api/
+    app/
+      agent/               Deterministic intent router, tools registry, search_docs tool
+      api/routes/          documents, chat, tools, health, ready, metrics, meta, landing
+      core/                config, logging (JSON+redaction), metrics, rate_limit, errors
+      db/                  SQLAlchemy async models, pooled engine (asyncpg), migrations
+      ingestion/           magic-byte validation, PDF/TXT parsing, token-aware chunking
+      providers/           OpenAI client with SSE streaming, retries, and fallback model
+      repositories/        pgvector cosine + PostgreSQL FTS Reciprocal Rank Fusion
+      schemas/             Pydantic v2 validation contracts
+      services/            ingestion, chat, orders, tickets business logic
+    migrations/            Alembic database migrations
+    tests/                 42 automated tests (unit, security, rate limit, isolation)
+  web/
+    app/
+      documents/           Document repository (/documents) + layout (noindex)
+      documents/[id]/      Document viewer & excerpt inspector (/documents/[id])
+      evaluation/          RAG benchmark dashboard (/evaluation) + layout (noindex)
+      error.tsx            React runtime error boundary
+      layout.tsx           Root shell with SEO OpenGraph & Twitter metadata
+      not-found.tsx        Custom 404 page
+      page.tsx             Main workspace & chat view (/)
+      robots.ts            Dynamic robots.txt disallowing private routes
+      sitemap.ts           Dynamic sitemap.xml for public root only
+    components/            AppShell, SVG icons, TicketModal, SourceInspector
+    lib/                   Typed API client & SSE streaming parser
+data/                      Sample document (txt & pdf), gold questions, seed orders
+docs/                      Comprehensive product, architecture, engineering & SRE docs
+  operations/              OBSERVABILITY.md, INCIDENT_RESPONSE.md, BACKUP_AND_RESTORE.md
+  engineering/             SECURITY.md, SEO.md, API_CONTRACT.md, RAG_DESIGN.md
+evaluation/results/        15-question benchmark measurements (latest.json)
+```
+
+---
+
+## 5. Development Setup & Execution
+
+### 5.1 Prerequisites
+- **Python 3.12+** and [`uv`](https://docs.astral.sh/uv/)
+- **Node.js 22+** and [`pnpm`](https://pnpm.io/)
+- **PostgreSQL 16 or 18** with `pgvector` extension
+
+### 5.2 Environment Setup
+Copy the template and configure your credentials:
+```bash
+cp .env.example .env
+```
+Ensure `.env` contains your database connection string and OpenAI key:
+```env
+DATABASE_URL=postgresql+asyncpg://postgres:12345@localhost:5432/documind
+OPENAI_API_KEY=sk-...your-key...
+```
+
+### 5.3 One-Command Local Startup
+From the repository root:
+```bash
+# 1. Install workspace dependencies
+pnpm install
+
+# 2. Start Backend (8888) and Frontend (7777) concurrently
+pnpm dev
+```
+
+### 5.4 Docker Compose Startup
+```bash
+docker compose up --build
+```
+This automatically provisions PostgreSQL with `pgvector`, runs database migrations, seeds demo orders, and starts both API (port 8888) and Web (port 7777).
+
+---
+
+## 6. Security & Hardening Controls
+
+1. **Authentication & Multi-Tenant Isolation:**
+   - **Local Mode (`AUTH_REQUIRED=false`):** Defaults to `DEMO_OWNER_ID`. Allows clean-machine testing without tokens while honoring `X-Owner-Id` for isolated multi-tenant testing.
+   - **Production Mode (`AUTH_REQUIRED=true`):** Requires Bearer token (`Authorization: Bearer <token>`) or API key (`X-API-Key: <key>`). Missing credentials produce `401 UNAUTHORIZED`; invalid credentials produce `403 FORBIDDEN`.
+   - **Database Scoping:** All chunks, embeddings, orders, and tickets are strictly filtered by `owner_id` at the database query layer.
+2. **Sliding-Window Rate Limiting:**
+   - In-memory rate limiter protects expensive operations:
+     - Document uploads: 15 / minute
+     - Chat & LLM calls: 60 / minute
+     - Ticket operations: 30 / minute
+     - General API: 120 / minute
+   - Rejections return `429 Too Many Requests` with `Retry-After: 60`.
+3. **Defensive HTTP Security Headers:**
+   - `X-Content-Type-Options: nosniff`
+   - `X-Frame-Options: DENY`
+   - `Referrer-Policy: strict-origin-when-cross-origin`
+   - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+   - `Content-Security-Policy`: Restricts scripts and framing; document downloads enforce `default-src 'none'; sandbox`.
+   - `Strict-Transport-Security: max-age=31536000; includeSubDomains` in production.
+4. **Automated Credential Redaction in Logs:**
+   - All logs scrub OpenAI keys (`sk-***[REDACTED]***`), Bearer tokens, database connection passwords, and API secrets via `SensitiveDataFilter`.
+5. **Database Connection Pooling:**
+   - Configured `pool_size` (10), `max_overflow` (20), `pool_recycle` (1800s), and `pool_timeout` (30s) in asyncpg to prevent connection exhaustion.
+
+---
+
+## 7. Observability & SRE Telemetry
+
+- **Prometheus Metrics (`GET /metrics`):**
+  - Uptime gauge (`documind_uptime_seconds`)
+  - Database health gauge (`documind_database_healthy`)
+  - Request counters and durations by normalized route (`documind_http_requests_total`)
+  - Business counters: documents ingested, chunks indexed, chat routes, orders queried, tickets prepared/confirmed, and 429 rejections.
+- **Request Tracing:**
+  - `X-Request-ID` generated or validated on every request, propagated across async tasks via `contextvars`, and attached to all response headers and SSE streams.
+- **Structured JSON Logging:**
+  - Emits single-line JSON logs in production (`LOG_FORMAT=json` or `APP_ENV=production`) with timestamp, severity, service, environment, request ID, logger name, and redacted message.
+- **Health Probes:**
+  - `GET /health`: Liveness probe.
+  - `GET /ready`: Readiness probe verifying PostgreSQL connection and pgvector extension.
+
+---
+
+## 8. SEO & Privacy Policy
+
+DocuMind strictly enforces data privacy boundaries:
+- **Public Entrypoint (`/`):** Full OpenGraph, Twitter card, canonical metadata, and sitemap inclusion.
+- **Private Routes (`/documents`, `/documents/*`, `/evaluation`, `/api/*`):**
+  - Dynamically disallowed in `robots.txt` (`apps/web/app/robots.ts`).
+  - Explicitly excluded from `sitemap.xml` (`apps/web/app/sitemap.ts`).
+  - Marked with `robots: { index: false, follow: false }` in Next.js layouts.
+  - No user-uploaded document content, citations, or metadata ever enter public search indexes.
+
+---
+
+## 9. Key Technical Decisions & Tradeoffs
+
+| Decision | Selected Architecture | Alternative Considered | Tradeoff & Justification |
 | :--- | :--- | :--- | :--- |
-| **Storage & Vectors** | PostgreSQL + `pgvector` | Dedicated Vector DB (Pinecone, Qdrant, Milvus) | **Simplicity & ACID guarantees:** Eliminates dual-write synchronization issues and extra network hops. Relational data (orders, tickets, documents) and vector embeddings share a single transactional boundary. |
-| **Retrieval Architecture** | Hybrid RRF (Vector Cosine + FTS `ts_rank_cd`) | Pure Vector Search | **Lexical precision:** Vector search excels at semantic paraphrasing but often misses exact alphanumeric identifiers, policy codes, and technical jargon. Reciprocal Rank Fusion (RRF) gives the best of both worlds, achieving 100% recall. |
-| **Intent Routing** | Deterministic Regex & Pattern Router | LLM-as-a-Router / Function Calling Agent | **Latency & Cost:** Routing simple queries deterministically takes `<1ms` and costs `$0.00`. An LLM-based router adds 300–800ms of latency and non-deterministic misrouting risk. |
-| **Action Confirmation** | Ephemeral Two-Stage Tokens (`prepare` → `confirm`) | Autonomous Tool Execution | **Safety & Auditability:** LLMs should never autonomously trigger mutating side-effects without explicit human verification. Cryptographic single-use tokens prevent unintended writes and replay attacks. |
-| **Citation Security** | Server-Side Allowlist & Record Lookup | LLM-Generated Citation Labels | **Prompt Injection Defense:** Untrusted document text could manipulate the model into inventing citations. In DocuMind, the LLM only outputs candidate UUIDs; the backend verifies membership and enriches metadata directly from PostgreSQL. |
-| **API Contract** | Server-Sent Events (SSE) with Typed Events | WebSockets or Long Polling | **Connection efficiency:** SSE is unidirectional, lightweight, operates over standard HTTP/1.1 and HTTP/2, traverses corporate proxies effortlessly, and allows native browser reconnection. |
+| **Persistence & Vectors** | PostgreSQL + `pgvector` | Dedicated Vector DB (Pinecone, Qdrant) | **ACID guarantees & zero sync lag:** Documents, chunks, orders, and vector embeddings share a single transactional boundary without dual-write inconsistency. |
+| **Retrieval Architecture** | Hybrid RRF (Vector + Full-Text Search) | Pure Vector Search | **Keyword precision:** Vector search excels at semantic paraphrasing but misses alphanumeric policy codes. Reciprocal Rank Fusion (RRF) achieved 100% recall on the gold test set. |
+| **Intent Routing** | Deterministic Regex & Pattern Router | LLM-as-a-Router | **Latency & Cost:** Deterministic routing takes `<1ms` and costs `$0.00`. An LLM router adds 300–800ms of latency and non-deterministic misrouting risk. |
+| **Action Confirmation** | Ephemeral Two-Stage Tokens (`prepare` → `confirm`) | Autonomous Tool Execution | **Safety & Replay Defense:** Mutating actions require explicit human verification with a 600s TTL token and atomic consumption preventing duplicate writes. |
+| **Citation Security** | Server-Side Allowlist & DB Enrichment | LLM-Generated Citation Labels | **Prompt Injection Defense:** Untrusted document text could manipulate the model into inventing citations. In DocuMind, the LLM only outputs candidate UUIDs; the backend verifies candidate membership and enriches metadata directly from PostgreSQL. |
 
 ---
 
-## 4. Why Not Use an Agent for Everything?
+## 10. Why Not Use an Agent for Everything?
 
-A common anti-pattern in modern AI development is wrapping every user interaction in an autonomous agent loop (e.g. ReAct / LangChain AgentExecutor). In DocuMind, simple document questions bypass the agent loop and execute through direct RAG. Here is why:
-
-1. **Latency & Time-to-First-Token (TTFT):**
-   - **Direct RAG:** Single vector query + single LLM call. Streaming tokens begin in **~200–400 ms**.
-   - **Autonomous Agent:** Requires reasoning step (`Thought`), tool selection (`Action`), tool execution, observation parsing, and final response synthesis. This multi-turn LLM loop increases latency to **2,000–5,000 ms**, degrading conversational responsiveness.
-
-2. **Cost Predictability:**
-   - Plain RAG incurs exactly one embedding call and one completion call.
-   - An open-ended agent can execute multiple exploratory iterations, consuming 3× to 6× more tokens per user question.
-
-3. **Deterministic Safety vs. Non-Deterministic Hallucinations:**
-   - For informational Q&A, users want answers strictly grounded in documents. Autonomous agents risk "reasoning drift" or hallucinating synthetic tool calls when document context is ambiguous.
-   - For database lookups and ticket creation, deterministic validation ensures operations adhere to strict schema constraints, authorization scopes, and human confirmations.
-
-4. **Operational Reliability:**
-   - Agent loops can enter infinite recursion or fail to terminate when tools return unexpected payloads. Direct routing bounds maximum execution steps and execution time deterministically.
+1. **Latency & TTFT:** Direct RAG begins streaming tokens in **~200–400 ms**. An autonomous agent loop (thought-action-observation) takes **2,000–5,000 ms**, degrading responsiveness.
+2. **Cost Efficiency:** Direct RAG requires a single completion pass. Open-ended agent loops consume 3× to 6× more tokens per question.
+3. **Deterministic Safety:** Informational Q&A requires answers strictly grounded in documents. Autonomous agents risk reasoning drift or hallucinating synthetic tool calls when document context is ambiguous.
+4. **Least Privilege:** Destructive or mutating operations (support tickets) must never be autonomously executed by an LLM without cryptographically bound human confirmation.
 
 ---
 
-## 5. Evaluation Results (300 vs 800 Tokens)
+## 11. Evaluation Benchmark Results (300 vs 800 Tokens)
 
-The 15-question gold evaluation dataset is formally defined in [`docs/evaluation/GOLD_QUESTIONS.md`](docs/evaluation/GOLD_QUESTIONS.md). Real evaluation runs were executed against `text-embedding-3-small` (1536 dimensions) using both Vector-only and Hybrid RRF retrieval. Results are logged in [`evaluation/results/latest.json`](evaluation/results/latest.json):
+The 15-question gold evaluation dataset is defined in [`docs/evaluation/GOLD_QUESTIONS.md`](docs/evaluation/GOLD_QUESTIONS.md). Real evaluation runs were executed against `text-embedding-3-small` (1536 dimensions) and logged in [`evaluation/results/latest.json`](evaluation/results/latest.json):
 
 | Metric | 300 Tokens (Vector) | 300 Tokens (Hybrid) | 800 Tokens (Vector) | 800 Tokens (Hybrid) |
 | :--- | :---: | :---: | :---: | :---: |
@@ -147,53 +247,45 @@ The 15-question gold evaluation dataset is formally defined in [`docs/evaluation
 | **Citation-Valid Answers** | 93.3% (14/15) | 93.3% (14/15) | 60.0% (9/15) | **100% (15/15)** |
 | **Mean Latency (ms)** | 1,858 ms | 1,757 ms | 1,673 ms | **1,591 ms** |
 | **Median Latency (ms)** | 1,760 ms | 1,600 ms | 1,406 ms | **1,551 ms** |
-| **Failed / Errored Requests** | 0 | 0 | 0 | **0** |
+| **Failed Requests** | 0 | 0 | 0 | **0** |
 
 ### Chunk Size Selection Rationale
-
-**Decision:** **800 Tokens with Hybrid RRF Retrieval** is selected for the final production implementation.
-
-**Why 800 Tokens Outperforms 300 Tokens:**
-1. **Semantic Completeness & Policy Cohesion:** Legal and customer support policies contain compound conditions (e.g. warranty coverage qualifications, exclusions, and claims procedures). A 300-token window frequently splits conditional clauses across chunk boundaries, requiring multiple retrieved chunks to synthesize an answer. 800 tokens keeps complete policy sections intact.
-2. **Superior Accuracy (100% vs 93.3%):** 800 tokens with Hybrid RRF achieved **15/15 (100%) context-supported and citation-valid answers**, resolving questions where smaller chunks left context gaps.
-3. **Reduced Latency (1,591 ms vs 1,757 ms):** Larger chunks result in fewer total documents to rank and fewer disjoint context segments in the LLM prompt, yielding faster generation times.
+**800 Tokens with Hybrid RRF Retrieval** is selected for production:
+1. **Semantic Completeness:** Multi-clause policies (e.g. warranty coverage qualifications and return exceptions) stay intact within 800 tokens, avoiding context fragmentation.
+2. **Superior Accuracy:** Achieved **15/15 (100%) context-supported and citation-valid answers**.
+3. **Lower Latency:** Fewer disjoint context segments result in faster LLM generation (1,591 ms vs 1,757 ms).
 
 ---
 
-## 6. What We Would Improve Next
+## 12. What We Would Improve Next
 
-If given additional engineering cycles, the following high-impact improvements would be prioritized:
-
-1. **Two-Stage Re-ranking:** Introduce a lightweight cross-encoder (e.g., `bge-reranker-large` or Cohere Rerank) after Hybrid RRF to boost precision when scaling to tens of thousands of documents.
-2. **Asynchronous Background Task Queue:** Offload heavy PDF parsing, OCR, and embedding generation to an asynchronous worker queue (Celery or ARQ with Redis) with real-time WebSocket/SSE progress updates.
-3. **Scanned PDF & Multimodal OCR:** Integrate a multimodal OCR pipeline (e.g. `pdf2image` + `marker` or Vision LLM) to accurately extract text from scanned PDFs, image receipts, and complex data tables.
-4. **Multi-Turn Conversation Memory:** Add session-based sliding-window conversation history with query rewriting to handle anaphoric follow-up questions (e.g., *"What about for damaged items?"*).
-5. **Organizational Multi-Tenancy & RBAC:** Implement team-based workspace isolation with role-based access control (Admin, Member, Viewer) and document-level permission tags.
+1. **Two-Stage Cross-Encoder Re-ranking:** Add a lightweight reranker (`bge-reranker-large` or Cohere Rerank) to further sharpen precision across tens of thousands of documents.
+2. **Asynchronous Background Ingestion Queue:** Offload heavy PDF parsing and vector generation to an asynchronous worker queue (Celery or ARQ with Redis) for large multi-hundred-page files.
+3. **Multimodal OCR Pipeline:** Integrate `pdf2image` + `marker` or Vision LLM for scanned PDFs and embedded image receipts.
+4. **Conversational Memory:** Add sliding-window conversation history with query rewriting for multi-turn conversational follow-ups.
 
 ---
 
-## 7. Automated Testing & Verification Suite
+## 13. Automated Testing & Verification Suite
 
-DocuMind enforces automated test coverage across chunking, retrieval, and tool-failure scenarios:
-
-### Running Backend Tests (pytest, ruff, mypy)
+### Running Backend Checks
 ```bash
-# Run the 26 automated unit and integration tests
+# Run 42 automated tests (unit, security, rate limiting, isolation)
 uv run --directory apps/api pytest
 
-# Run fast code linting
+# Fast linting
 uv run --directory apps/api ruff check app tests
 
-# Run strict static type checking (56 source files)
+# Strict static type checking (63 source files)
 uv run --directory apps/api mypy app tests
 ```
-*Current Status: 26 passed, 0 lint errors, 0 mypy type errors.*
+*Status: 42 passed, 0 lint errors, 0 type errors.*
 
-### Running Frontend Tests & Typecheck
+### Running Frontend Checks
 ```bash
 cd apps/web
 
-# Strict TypeScript verification
+# TypeScript typecheck
 npm run typecheck
 
 # ESLint audit
@@ -202,65 +294,37 @@ npm run lint
 # Production Turbopack build
 npm run build
 ```
-*Current Status: 0 type errors, 0 lint warnings, 5/5 routes successfully compiled.*
-
-### Test Coverage Highlights
-- **Chunking (`tests/test_chunker.py`):** Token order preservation, boundary overlap verification, invalid parameter rejection, and section/page metadata mapping.
-- **Retrieval (`tests/test_search_docs.py`):** Ownership scoping, top-k limiting, and citation metadata extraction.
-- **Tool Failure (`tests/test_tools.py`):** Database connection failure and graceful exception transformation without tracebacks.
-- **Guardrails (`tests/test_guardrails.py`):** Ticket confirmation expiration, duplicate upload deduplication, and replay attack rejection.
+*Status: 0 type errors, 0 lint warnings, 7/7 routes compiled.*
 
 ---
 
-## 8. Frontend Implementation: 4 Reference Designs
+## 14. Documentation Index
 
-The Next.js 16 frontend located in `apps/web/` faithfully reproduces the 4 design mockups in `design/`:
-
-1. **Workspace & Chat View (`design/Documind_workspace.png` → `/`):**
-   - Left navigation drawer with brand icon, session history, and workspace links.
-   - Conversational chat area with streamed Markdown, model/route indicator badges (`RAG`, `Agent Tool`), and inline citation pills (`[1]`).
-   - Right Source Inspector panel showing active chunk quotes, page numbers, and section headers.
-   - Interactive Ticket Confirmation Modal for two-stage approval.
-
-2. **Documents Repository (`design/documind_documents_page.png` → `/documents`):**
-   - Top drag-and-drop upload banner with validation and status indicators.
-   - Status filter pills (`All`, `Ready`, `Processing`, `Failed`).
-   - Sortable documents table with chunk counts, file sizes, and download actions.
-   - Slide-out details drawer with raw chunk inspection.
-
-3. **Document Details & Excerpt Inspector (`design/documind_documents_details_page.png` → `/documents/[id]`):**
-   - Page thumbnail rail with navigation controls.
-   - Central document reader canvas with interactive excerpt highlights.
-   - Chunk metadata sidebar detailing token counts and embedding dimensions.
-
-4. **Evaluation & Benchmark Dashboard (`design/documind_evaluation_page.png` → `/evaluation`):**
-   - KPI comparison cards (Retrieval Recall, Context Support, Mean Latency).
-   - SVG performance visualizer charts.
-   - Complete 15 Gold Questions interactive evaluation table.
-   - Benchmark insights and chunk size trade-off analysis sidebar.
-
----
-
-## 9. Documentation Index
-
-Comprehensive engineering documentation is maintained in the `docs/` directory:
-
-- [Product Requirements Document (PRD)](docs/product/PRD.md)
-- [System Requirements Specification (SRS)](docs/product/SRS.md)
-- [System Architecture](docs/architecture/ARCHITECTURE.md)
-- [Architecture Decision Records (ADRs)](docs/architecture/ADRs.md)
-- [Data Model & Database Schema](docs/architecture/DATA_MODEL.md)
-- [API Contract Specification](docs/engineering/API_CONTRACT.md)
-- [Frontend UX & Design System](docs/engineering/FRONTEND_UX.md)
-- [RAG & Ingestion Design](docs/engineering/RAG_DESIGN.md)
-- [Agent & Tools Guardrails](docs/engineering/AGENT_TOOLS.md)
-- [Security & Threat Model](docs/engineering/SECURITY.md)
-- [Testing Strategy & Test Plan](docs/engineering/TESTING.md)
-- [Evaluation Protocol & Measurements](docs/evaluation/EVALUATION.md)
-- [15 Gold Questions Dataset](docs/evaluation/GOLD_QUESTIONS.md)
-- [Operations & Deployment Guide](docs/operations/DEPLOYMENT.md)
-- [Implementation Plan & Definition of Done](docs/operations/IMPLEMENTATION_PLAN.md)
-- [Risk Register](docs/operations/RISKS.md)
+- **Product & System Requirements:**
+  - [Product Requirements Document (PRD)](docs/product/PRD.md)
+  - [System Requirements Specification (SRS)](docs/product/SRS.md)
+- **Architecture & Design:**
+  - [Architecture Overview](docs/architecture/ARCHITECTURE.md)
+  - [Architecture Decision Records (ADRs)](docs/architecture/ADRs.md)
+  - [Data Model & Database Schema](docs/architecture/DATA_MODEL.md)
+- **Engineering Specifications:**
+  - [API Contract Specification](docs/engineering/API_CONTRACT.md)
+  - [Security & Threat Model](docs/engineering/SECURITY.md)
+  - [Technical SEO Policy](docs/engineering/SEO.md)
+  - [RAG & Ingestion Design](docs/engineering/RAG_DESIGN.md)
+  - [Agent & Tools Guardrails](docs/engineering/AGENT_TOOLS.md)
+  - [Frontend UX & Design System](docs/engineering/FRONTEND_UX.md)
+  - [Testing Strategy & Test Plan](docs/engineering/TESTING.md)
+- **Evaluation & Benchmarks:**
+  - [Evaluation Protocol & Measurements](docs/evaluation/EVALUATION.md)
+  - [15 Gold Questions Dataset](docs/evaluation/GOLD_QUESTIONS.md)
+- **Operations & SRE Runbooks:**
+  - [Observability & Monitoring Runbook](docs/operations/OBSERVABILITY.md)
+  - [Incident Response Runbook](docs/operations/INCIDENT_RESPONSE.md)
+  - [Backup and Restore Runbook](docs/operations/BACKUP_AND_RESTORE.md)
+  - [Production Release Checklist](docs/operations/RELEASE_CHECKLIST.md)
+  - [Deployment Guide](docs/operations/DEPLOYMENT.md)
+  - [Hardening Risk Register](docs/operations/RISKS.md)
 
 ---
-*Developed for VanarX Tech by Candidate Bikash Saud.*
+*DocuMind — Enterprise-Ready Document AI Assistant.*

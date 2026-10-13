@@ -21,8 +21,7 @@ class OpenAICompatibleProvider:
         }
         data = await self._post("/embeddings", payload)
         vectors = [
-            item["embedding"]
-            for item in sorted(data["data"], key=lambda item: item["index"])
+            item["embedding"] for item in sorted(data["data"], key=lambda item: item["index"])
         ]
         if len(vectors) != len(texts) or any(
             len(vector) != self.settings.embedding_dimensions for vector in vectors
@@ -31,9 +30,7 @@ class OpenAICompatibleProvider:
         return vectors
 
     async def generate(self, messages: list[dict[str, str]]) -> str:
-        for model in filter(
-            None, [self.settings.llm_model, self.settings.llm_fallback_model]
-        ):
+        for model in filter(None, [self.settings.llm_model, self.settings.llm_fallback_model]):
             try:
                 data = await self._post(
                     "/chat/completions",
@@ -50,14 +47,15 @@ class OpenAICompatibleProvider:
                 continue
         raise ProviderUnavailableError()
 
-    async def stream_generate(
-        self, messages: list[dict[str, str]]
-    ) -> AsyncIterator[str]:
+    async def stream_generate(self, messages: list[dict[str, str]]) -> AsyncIterator[str]:
+        """doc-mind-ai: Low-latency SSE streaming generation with fallback model resiliency.
+
+        Streams LLM tokens chunk-by-chunk using Server-Sent Events to minimize Time-to-First-Token (TTFT),
+        falling back automatically to a secondary lightweight model if the primary model fails or times out.
+        """
         if not self.settings.openai_api_key:
             raise ProviderUnavailableError()
-        for model in filter(
-            None, [self.settings.llm_model, self.settings.llm_fallback_model]
-        ):
+        for model in filter(None, [self.settings.llm_model, self.settings.llm_fallback_model]):
             for attempt in range(self.settings.provider_max_retries + 1):
                 emitted = False
                 try:
@@ -73,9 +71,7 @@ class OpenAICompatibleProvider:
             continue
         raise ProviderUnavailableError()
 
-    async def _stream_model(
-        self, model: str, messages: list[dict[str, str]]
-    ) -> AsyncIterator[str]:
+    async def _stream_model(self, model: str, messages: list[dict[str, str]]) -> AsyncIterator[str]:
         headers = {"Authorization": f"Bearer {self.settings.openai_api_key}"}
         payload = {
             "model": model,
@@ -86,13 +82,14 @@ class OpenAICompatibleProvider:
             "stream": True,
         }
         try:
-            async with httpx.AsyncClient(
-                base_url=self.settings.openai_base_url.rstrip("/"),
-                headers=headers,
-                timeout=self.settings.provider_timeout_seconds,
-            ) as client, client.stream(
-                "POST", "/chat/completions", json=payload
-            ) as response:
+            async with (
+                httpx.AsyncClient(
+                    base_url=self.settings.openai_base_url.rstrip("/"),
+                    headers=headers,
+                    timeout=self.settings.provider_timeout_seconds,
+                ) as client,
+                client.stream("POST", "/chat/completions", json=payload) as response,
+            ):
                 if response.is_error:
                     raise ProviderUnavailableError()
                 async for line in response.aiter_lines():
@@ -129,9 +126,7 @@ class OpenAICompatibleProvider:
                 ) as client:
                     response = await client.post(path, json=payload)
                 if response.status_code in {408, 429, 500, 502, 503, 504}:
-                    raise httpx.NetworkError(
-                        "transient provider error", request=response.request
-                    )
+                    raise httpx.NetworkError("transient provider error", request=response.request)
                 if response.is_error:
                     raise ProviderUnavailableError()
                 return cast(dict[str, Any], response.json())
