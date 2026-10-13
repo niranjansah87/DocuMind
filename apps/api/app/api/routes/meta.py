@@ -68,6 +68,7 @@ async def app_meta(settings: Settings = Depends(get_settings)) -> AppMetaRespons
         retrieval_top_k=settings.retrieval_top_k,
         chunk_size_tokens=settings.chunk_size_tokens,
         chunk_overlap_tokens=settings.chunk_overlap_tokens,
+        auth_required=settings.auth_required,
     )
 
 

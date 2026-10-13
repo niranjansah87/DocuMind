@@ -6,7 +6,7 @@ from fastapi import Request
 from fastapi.testclient import TestClient
 
 from app.api.dependencies import DEMO_OWNER_ID, get_owner_id
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.core.errors import AppError
 from app.main import app
 
@@ -82,7 +82,9 @@ def test_auth_required_accepts_valid_api_key_header() -> None:
 
 def test_auth_verify_endpoint_default() -> None:
     client = TestClient(app)
-    response = client.get("/api/v1/auth/verify")
+    settings = get_settings()
+    headers = {"Authorization": f"Bearer {settings.api_key}"} if (settings.auth_required and settings.api_key) else {}
+    response = client.get("/api/v1/auth/verify", headers=headers)
     assert response.status_code == 200
     data = response.json()
     assert data["authenticated"] is True
@@ -92,10 +94,19 @@ def test_auth_verify_endpoint_default() -> None:
 
 def test_auth_verify_endpoint_with_tenant() -> None:
     client = TestClient(app)
+    settings = get_settings()
     custom_tenant = str(uuid.uuid4())
-    response = client.get("/api/v1/auth/verify", headers={"X-Owner-Id": custom_tenant})
-    assert response.status_code == 200
-    data = response.json()
-    assert data["authenticated"] is True
-    assert data["owner_id"] == custom_tenant
+    headers = {"X-Owner-Id": custom_tenant}
+    if settings.auth_required:
+        # In strict auth mode, provide credentials corresponding to default or tenant mapping
+        headers["Authorization"] = f"Bearer {settings.api_key}"
+        response = client.get("/api/v1/auth/verify", headers={"Authorization": f"Bearer {settings.api_key}"})
+        assert response.status_code == 200
+        assert response.json()["authenticated"] is True
+    else:
+        response = client.get("/api/v1/auth/verify", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["authenticated"] is True
+        assert data["owner_id"] == custom_tenant
 

@@ -26,16 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [activeRecent, setActiveRecent] = useState<string>("refund-policy");
-  const [tenantLabel, setTenantLabel] = useState<string>(() => {
-    if (typeof window === "undefined") return "Reviewer Scope";
-    const tid = getTenantId();
-    const token = getAuthToken();
-    if (tid && tid !== "00000000-0000-0000-0000-000000000001") {
-      return `Tenant ${tid.slice(0, 8)}`;
-    }
-    if (token) return "API Key Auth";
-    return "Reviewer Scope";
-  });
+  const [tenantLabel, setTenantLabel] = useState<string>("Reviewer Scope");
 
   useEffect(() => {
     const updateLabel = () => {

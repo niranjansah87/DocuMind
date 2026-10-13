@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 from starlette.testclient import TestClient
 
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.main import app
 
 
@@ -30,8 +30,9 @@ def test_api_routes_have_no_store_cache_control(client: TestClient) -> None:
 
 
 def test_metrics_endpoint_returns_prometheus_format(client: TestClient) -> None:
-    # With AUTH_REQUIRED=false and no METRICS_TOKEN, metrics is open in dev/demo mode
-    response = client.get("/metrics")
+    settings = get_settings()
+    headers = {"Authorization": f"Bearer {settings.api_key}"} if (settings.auth_required and settings.api_key) else {}
+    response = client.get("/metrics", headers=headers)
     assert response.status_code == 200
     assert "documind_uptime_seconds" in response.text
     assert "documind_http_requests_total" in response.text

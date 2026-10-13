@@ -3,40 +3,63 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import { Icon } from "@/components/icons";
-import { checkHealth, verifyAuth } from "@/lib/api";
-import { clearAuthToken, clearTenantId, getAuthToken, getTenantId, setAuthToken, setTenantId } from "@/lib/auth";
+import { checkHealth, getAppMeta, verifyAuth } from "@/lib/api";
+import {
+  clearAuthToken,
+  clearTenantId,
+  getAuthToken,
+  getTenantId,
+  setAuthToken,
+  setTenantId,
+} from "@/lib/auth";
 
 const DEFAULT_DEMO_TENANT = "00000000-0000-0000-0000-000000000001";
 
+const subscribeAuth = (callback: () => void) => {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener("storage", callback);
+  window.addEventListener("documind:auth-changed", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("documind:auth-changed", callback);
+  };
+};
+
+const getStoredToken = () => (typeof window !== "undefined" ? getAuthToken() : null);
+const getStoredTenant = () => (typeof window !== "undefined" ? getTenantId() : null);
+
 export default function LoginPage() {
   const router = useRouter();
-  const [token, setToken] = useState(() => (typeof window !== "undefined" ? getAuthToken() || "" : ""));
-  const [tenantId, setTenantIdInput] = useState(() => (typeof window !== "undefined" ? getTenantId() || "" : ""));
+
+  const storedToken = useSyncExternalStore(subscribeAuth, getStoredToken, () => null);
+  const storedTenant = useSyncExternalStore(subscribeAuth, getStoredTenant, () => null);
+
+  // Controlled form states
+  const [tokenInput, setTokenInput] = useState<string | null>(null);
+  const [tenantIdInput, setTenantIdInput] = useState<string | null>(null);
   const [remember, setRemember] = useState(true);
+  const [showToken, setShowToken] = useState(false);
+  const [userTab, setUserTab] = useState<"demo" | "custom" | null>(null);
+
+  // System & status states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showToken, setShowToken] = useState(false);
-  const [authRequired, setAuthRequired] = useState<boolean | null>(null);
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
-  const [activeSession, setActiveSession] = useState<{ token: string | null; tenantId: string | null }>(() => {
-    if (typeof window === "undefined") return { token: null, tenantId: null };
-    return { token: getAuthToken(), tenantId: getTenantId() };
-  });
-  const [tab, setTab] = useState<"demo" | "custom">(() => {
-    if (typeof window === "undefined") return "demo";
-    const currentToken = getAuthToken();
-    const currentTenant = getTenantId();
-    if (currentToken || (currentTenant && currentTenant !== DEFAULT_DEMO_TENANT)) {
-      return "custom";
-    }
-    return "demo";
-  });
+  const [authRequired, setAuthRequired] = useState<boolean | null>(null);
 
+  const token = tokenInput !== null ? tokenInput : (storedToken || "");
+  const tenantId = tenantIdInput !== null ? tenantIdInput : (storedTenant || "");
+
+  const hasCustomAuth = Boolean(storedToken || (storedTenant && storedTenant !== DEFAULT_DEMO_TENANT));
+  const tab = userTab !== null ? userTab : (hasCustomAuth ? "custom" : "demo");
+
+  const activeSession = { token: storedToken, tenantId: storedTenant };
+
+  // Check health and meta upon mount (pure async platform fetch)
   useEffect(() => {
     let isMounted = true;
-
     void (async () => {
       try {
         const isHealthy = await checkHealth();
@@ -46,8 +69,8 @@ export default function LoginPage() {
       }
 
       try {
-        const status = await verifyAuth();
-        if (isMounted) setAuthRequired(status.auth_required);
+        const meta = await getAppMeta();
+        if (isMounted) setAuthRequired(Boolean(meta.auth_required));
       } catch {
         if (isMounted) setAuthRequired(true);
       }
@@ -81,9 +104,13 @@ export default function LoginPage() {
       if (!tenantId.trim() && verified?.owner_id) {
         setTenantId(verified.owner_id, remember);
       }
+
       router.push("/");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Authentication failed. Please verify your credentials.";
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Authentication failed. Please verify your credentials.";
       setError(msg);
       setLoading(false);
     }
@@ -98,169 +125,175 @@ export default function LoginPage() {
   const handleDisconnect = () => {
     clearAuthToken();
     clearTenantId();
-    setToken("");
+    setTokenInput("");
     setTenantIdInput("");
-    setActiveSession({ token: null, tenantId: null });
     setError("");
+    setUserTab("demo");
   };
 
   return (
-    <div className="min-h-screen bg-[#07090E] text-white flex flex-col justify-center items-center p-6 selection:bg-indigo-500/30">
-      {/* Background ambient lighting */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-indigo-600/10 rounded-full blur-[140px]" />
-      </div>
+    <div className="auth-page-container">
+      <div className="auth-bg-ambient" />
 
-      <div className="relative w-full max-w-md space-y-6">
+      <div className="auth-card-wrap">
         {/* Brand Header */}
-        <div className="text-center space-y-3">
-          <Link href="/" className="inline-flex items-center justify-center p-2 rounded-2xl bg-white/5 border border-white/10 shadow-2xl hover:bg-white/10 transition-all">
-            <Image src="/logo.png" alt="DocuMind" width={140} height={36} priority className="h-8 w-auto object-contain" />
+        <div className="auth-brand-header">
+          <Link href="/" className="auth-logo-link" aria-label="DocuMind Home">
+            <Image
+              src="/logo.png"
+              alt="DocuMind"
+              width={140}
+              height={36}
+              priority
+              style={{ objectFit: "contain", height: "30px", width: "auto" }}
+            />
           </Link>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">
-            Workspace Authentication
-          </h1>
-          <p className="text-sm text-slate-400">
+
+          <h1 className="auth-title">Workspace Authentication</h1>
+          <p className="auth-subtitle">
             Configure tenant isolation and API credentials for DocuMind.
           </p>
 
-          <div className="flex items-center justify-center gap-2 pt-1">
+          <div className="auth-status-pills">
             {apiOnline === true && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Backend Online (port 8888)</span>
-              </div>
+              <span className="auth-pill online">
+                <span className="auth-pill-dot pulse" />
+                Backend Online
+              </span>
             )}
             {apiOnline === false && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 border border-amber-500/20 text-amber-400">
-                <Icon name="alert-circle" size={13} />
-                <span>API Offline (check port 8888)</span>
-              </div>
+              <span className="auth-pill offline">
+                <Icon name="alert-circle" size={12} />
+                API Offline (check port 8888)
+              </span>
             )}
             {authRequired === false && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-500/10 border border-blue-500/20 text-blue-400">
-                <Icon name="check-circle" size={13} />
-                <span>Reviewer Mode (Auth Optional)</span>
-              </div>
+              <span className="auth-pill mode">
+                <Icon name="check-circle" size={12} />
+                Reviewer Mode (Auth Optional)
+              </span>
+            )}
+            {authRequired === true && (
+              <span className="auth-pill prod">
+                <Icon name="shield-check" size={12} />
+                Protected (Auth Required)
+              </span>
             )}
           </div>
         </div>
 
-        {/* Active Session Card if already set */}
+        {/* Active Session Indicator */}
         {(activeSession.token || activeSession.tenantId) && (
-          <div className="rounded-2xl bg-indigo-950/20 border border-indigo-500/30 p-4 shadow-xl flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-[11px] uppercase tracking-wider text-indigo-400 font-semibold">Active Session</span>
-              <p className="text-xs text-slate-300 font-mono truncate max-w-[260px]">
-                {activeSession.tenantId ? `Tenant: ${activeSession.tenantId}` : "Custom Bearer Token"}
-              </p>
+          <div className="auth-session-card">
+            <div className="auth-session-meta">
+              <span className="auth-session-badge">Active Session</span>
+              <span className="auth-session-desc" title={activeSession.tenantId || activeSession.token || ""}>
+                {activeSession.tenantId ? `Tenant: ${activeSession.tenantId}` : "Bearer Token Configured"}
+              </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="auth-session-actions">
               <button
                 type="button"
                 onClick={handleDisconnect}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-red-500/20 text-slate-300 hover:text-red-400 border border-white/10 transition-all cursor-pointer"
-                title="Disconnect workspace session"
+                className="auth-session-btn-clear"
+                title="Disconnect stored credentials"
               >
                 Clear
               </button>
-              <Link
-                href="/"
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-md shadow-indigo-600/20"
-              >
+              <Link href="/" className="auth-session-btn-enter">
                 Enter →
               </Link>
             </div>
           </div>
         )}
 
-        {/* Tab Selection */}
-        <div className="flex p-1 rounded-xl bg-white/5 border border-white/10 text-xs">
-          <button
-            type="button"
-            onClick={() => setTab("demo")}
-            className={`flex-1 py-2 rounded-lg font-medium transition-all cursor-pointer ${
-              tab === "demo" ? "bg-indigo-600 text-white shadow-md" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            Reviewer Demo (1-Click)
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("custom")}
-            className={`flex-1 py-2 rounded-lg font-medium transition-all cursor-pointer ${
-              tab === "custom" ? "bg-indigo-600 text-white shadow-md" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            Custom Tenant / API Key
-          </button>
-        </div>
-
-        {/* Auth Form Card */}
-        <div className="rounded-2xl bg-[#0D121F] border border-white/10 p-7 shadow-2xl space-y-6">
+        {/* Main Card */}
+        <div className="auth-card">
           {error && (
-            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs leading-relaxed">
-              <Icon name="alert-circle" size={16} className="shrink-0 mt-0.5" />
+            <div className="auth-error-alert" role="alert">
+              <Icon name="alert-circle" size={16} />
               <span>{error}</span>
             </div>
           )}
 
+          {/* Segmented Tab Switcher */}
+          <div className="auth-tab-bar" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "demo"}
+              onClick={() => setUserTab("demo")}
+              className={`auth-tab-btn ${tab === "demo" ? "active" : ""}`}
+            >
+              Reviewer Demo (1-Click)
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "custom"}
+              onClick={() => setUserTab("custom")}
+              className={`auth-tab-btn ${tab === "custom" ? "active" : ""}`}
+            >
+              Custom Tenant / API Key
+            </button>
+          </div>
+
           {tab === "demo" ? (
-            <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
-                <div className="flex items-center gap-2 text-indigo-400 text-sm font-medium">
+            <div className="auth-form">
+              <div className="auth-demo-box">
+                <div className="auth-demo-header">
                   <Icon name="shield-check" size={16} />
                   <span>Single-User Reviewer Scope</span>
                 </div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Connects to the default isolated evaluation database scope with zero manual setup.
+                <p className="auth-demo-text">
+                  Connects to the default isolated database scope with zero manual setup.
                 </p>
-                <div className="pt-1 font-mono text-[11px] text-slate-500">
-                  Tenant ID: <span className="text-slate-300">{DEFAULT_DEMO_TENANT}</span>
+                <div className="auth-demo-scope">
+                  Scope UUID: {DEFAULT_DEMO_TENANT}
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={handleDemoAccess}
-                className="w-full py-3 px-4 rounded-xl text-sm font-medium bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white shadow-lg shadow-indigo-600/25 transition-all cursor-pointer flex items-center justify-center gap-2"
+                className="auth-primary-btn"
               >
                 <Icon name="check-circle" size={16} />
                 <span>Launch Reviewer Workspace</span>
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-2">
-                <label htmlFor="token" className="block text-xs font-medium uppercase tracking-wider text-slate-300">
+            <form onSubmit={handleSubmit} className="auth-form">
+              <div className="auth-field-group">
+                <label htmlFor="token" className="auth-label">
                   API Key or Access Token
                 </label>
-                <div className="relative">
+                <div className="auth-input-wrap">
                   <input
                     id="token"
                     type={showToken ? "text" : "password"}
                     value={token}
-                    onChange={(e) => setToken(e.target.value)}
+                    onChange={(e) => setTokenInput(e.target.value)}
                     placeholder="Bearer token or API key..."
-                    className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono"
+                    className="auth-input mono"
                     autoComplete="current-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowToken(!showToken)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs transition-colors"
+                    className="auth-input-toggle"
                   >
                     {showToken ? "Hide" : "Show"}
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  Supplied via <code className="text-slate-400">Authorization: Bearer</code> or <code className="text-slate-400">X-API-Key</code>.
+                <p className="auth-field-hint">
+                  Supplied via <code>Authorization: Bearer</code> or <code>X-API-Key</code>.
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <label htmlFor="tenantId" className="block text-xs font-medium uppercase tracking-wider text-slate-300">
-                  Tenant / Owner ID <span className="text-slate-500 font-normal lowercase">(UUID)</span>
+              <div className="auth-field-group">
+                <label htmlFor="tenantId" className="auth-label">
+                  Tenant / Owner ID (UUID)
                 </label>
                 <input
                   id="tenantId"
@@ -268,58 +301,58 @@ export default function LoginPage() {
                   value={tenantId}
                   onChange={(e) => setTenantIdInput(e.target.value)}
                   placeholder="00000000-0000-0000-0000-000000000001"
-                  className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono"
+                  className="auth-input mono"
                 />
-                <p className="text-[11px] text-slate-500">
-                  Enforces multi-tenant isolation via <code className="text-slate-400">X-Owner-Id</code>.
+                <p className="auth-field-hint">
+                  Optional. Defaults to credential-bound owner scope via <code>X-Owner-Id</code>.
                 </p>
               </div>
 
-              <div className="flex items-center justify-between pt-1">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
+              <div className="auth-remember-row">
+                <label className="auth-remember-label">
                   <input
                     type="checkbox"
                     checked={remember}
                     onChange={(e) => setRemember(e.target.checked)}
-                    className="w-4 h-4 rounded border-white/20 bg-black/40 text-indigo-600 focus:ring-indigo-500"
+                    className="auth-checkbox"
                   />
-                  <span className="text-xs text-slate-400">Remember credentials</span>
+                  <span>Remember credentials in browser</span>
                 </label>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 px-4 rounded-xl text-sm font-medium bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white shadow-lg shadow-indigo-600/25 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="auth-primary-btn"
               >
                 {loading ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="auth-spinner" />
                     <span>Verifying credentials...</span>
                   </>
                 ) : (
                   <>
                     <Icon name="shield-check" size={16} />
-                    <span>Connect Custom Tenant</span>
+                    <span>Connect Workspace</span>
                   </>
                 )}
               </button>
             </form>
           )}
 
-          {/* Quick Reviewer Demo Bypass */}
-          <div className="pt-3 border-t border-white/5 text-center flex items-center justify-between text-xs text-slate-500">
-            <Link href="/" className="hover:text-indigo-400 transition-colors">
+          {/* Quick Footer Links */}
+          <div className="auth-footer-nav">
+            <Link href="/" className="auth-footer-link">
               ← Return to Chat
             </Link>
-            <Link href="/documents" className="hover:text-indigo-400 transition-colors">
-              View Documents Library →
+            <Link href="/documents" className="auth-footer-link">
+              Documents Library →
             </Link>
           </div>
         </div>
 
         {/* Security Notice */}
-        <p className="text-center text-xs text-slate-500">
+        <p className="auth-security-notice">
           All requests are encrypted with HTTPS and scoped to PostgreSQL tenant databases.
         </p>
       </div>

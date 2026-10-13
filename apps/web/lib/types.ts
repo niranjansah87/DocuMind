@@ -74,6 +74,7 @@ export type AppMeta = {
   retrieval_top_k: number;
   chunk_size_tokens: number;
   chunk_overlap_tokens: number;
+  auth_required?: boolean;
 };
 
 export type EvaluationQuestion = { id: string; question: string; expected_answer: string; gold_section: string };
