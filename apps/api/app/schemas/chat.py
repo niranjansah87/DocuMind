@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class ChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    message: str = Field(min_length=1, max_length=4000)
+    message: str = Field(min_length=1)
     document_ids: list[uuid.UUID] = Field(default_factory=list, max_length=20)
     conversation_id: uuid.UUID | None = None
 

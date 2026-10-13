@@ -5,11 +5,12 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import {
   confirmTicket,
+  getAppMeta,
   listDocuments,
   prepareTicket,
   streamChat,
 } from "@/lib/api";
-import type { Citation, DocumentItem, PendingTicket } from "@/lib/types";
+import type { AppMeta, Citation, DocumentItem, PendingTicket } from "@/lib/types";
 
 type Message = {
   id: string;
@@ -22,6 +23,7 @@ type Message = {
 
 export default function WorkspacePage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [meta, setMeta] = useState<AppMeta | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
@@ -33,9 +35,10 @@ export default function WorkspacePage() {
   const controller = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    listDocuments()
-      .then((items) => {
+    Promise.all([listDocuments(), getAppMeta()])
+      .then(([items, appMeta]) => {
         setDocuments(items);
+        setMeta(appMeta);
         setSelected(
           items
             .filter((item) => item.status === "ready")
@@ -185,7 +188,7 @@ export default function WorkspacePage() {
             <span className="pulse-dot" />
             <div>
               <strong>Controlled tools enabled</strong>
-              <small>Try “Where is ORD-1002?”</small>
+              <small>{meta ? `Try “Where is ${meta.order_example}?”` : "Order lookup is available"}</small>
             </div>
           </div>
         </section>
@@ -213,11 +216,7 @@ export default function WorkspacePage() {
                   citations you can verify.
                 </p>
                 <div className="suggestion-row">
-                  {[
-                    "Summarize the return policy",
-                    "What is covered by warranty?",
-                    "Where is ORD-1002?",
-                  ].map((suggestion) => (
+                  {meta?.suggested_questions.map((suggestion) => (
                     <button
                       key={suggestion}
                       onClick={() => setQuestion(suggestion)}
@@ -284,7 +283,7 @@ export default function WorkspacePage() {
           <form className="composer" onSubmit={(event) => void onSubmit(event)}>
             <textarea
               aria-label="Ask a question"
-              maxLength={4000}
+              maxLength={meta?.max_query_chars}
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
               onKeyDown={(event) => {
@@ -382,12 +381,12 @@ export default function WorkspacePage() {
           </div>
         </aside>
       </div>
-      {ticketOpen && <TicketDialog onClose={() => setTicketOpen(false)} />}
+      {ticketOpen && <TicketDialog meta={meta} onClose={() => setTicketOpen(false)} />}
     </main>
   );
 }
 
-function TicketDialog({ onClose }: { onClose: () => void }) {
+function TicketDialog({ meta, onClose }: { meta: AppMeta | null; onClose: () => void }) {
   const [draft, setDraft] = useState({
     subject: "",
     description: "",
@@ -509,8 +508,8 @@ function TicketDialog({ onClose }: { onClose: () => void }) {
                     order_number: event.target.value.toUpperCase(),
                   })
                 }
-                placeholder="ORD-1002"
-                pattern="ORD-[0-9]{4,}"
+                placeholder={meta?.order_example}
+                pattern={meta?.order_number_pattern}
               />
             </label>
             <label>

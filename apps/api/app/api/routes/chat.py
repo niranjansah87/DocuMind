@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.router import route_message
 from app.api.dependencies import get_owner_id
 from app.core.config import Settings, get_settings
+from app.core.errors import AppError
 from app.db.database import get_session
 from app.repositories.documents import DocumentRepository
 from app.schemas.chat import ChatRequest, ChatResponse
@@ -37,6 +38,8 @@ async def chat(
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> StreamingResponse:
+    if len(payload.message) > settings.max_query_chars:
+        raise AppError("QUERY_TOO_LONG", "The question exceeds the configured length limit.", 422)
     decision = route_message(payload.message)
     service = ChatService(DocumentRepository(session), OrderService(session), settings)
     if decision.route == "order" and decision.order_number:

@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
-import { deleteDocument, listDocuments, uploadDocument } from "@/lib/api";
-import type { DocumentItem } from "@/lib/types";
+import { deleteDocument, getAppMeta, listDocuments, uploadDocument } from "@/lib/api";
+import type { AppMeta, DocumentItem } from "@/lib/types";
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [meta, setMeta] = useState<AppMeta | null>(null);
   const [query, setQuery] = useState("");
   const [uploading, setUploading] = useState(false);
   const [notice, setNotice] = useState("");
@@ -18,8 +19,8 @@ export default function DocumentsPage() {
     setDocuments(await listDocuments());
   }
   useEffect(() => {
-    listDocuments()
-      .then(setDocuments)
+    Promise.all([listDocuments(), getAppMeta()])
+      .then(([items, appMeta]) => { setDocuments(items); setMeta(appMeta); })
       .catch(() => setError("Could not load documents."));
   }, []);
   const filtered = useMemo(
@@ -85,7 +86,7 @@ export default function DocumentsPage() {
           ref={fileInput}
           className="visually-hidden"
           type="file"
-          accept=".pdf,.txt,application/pdf,text/plain"
+          accept={meta?.accepted_extensions.map((extension) => `.${extension.toLowerCase()}`).join(",")}
           onChange={(event) => void upload(event)}
         />
       </header>
@@ -98,16 +99,16 @@ export default function DocumentsPage() {
         </div>
         <div>
           <span className="eyebrow">Build your knowledge base</span>
-          <h2>Upload a PDF or plain-text document</h2>
+          <h2>Upload a {meta?.accepted_extensions.join(" or ") ?? "document"}</h2>
           <p>
             Files are validated, chunked, embedded, and stored before they
             become available to chat.
           </p>
         </div>
         <span className="upload-limit">
-          PDF · TXT
+          {meta?.accepted_extensions.join(" · ")}
           <br />
-          <strong>10 MiB max</strong>
+          <strong>{meta ? `${formatBytes(meta.max_upload_bytes)} max` : ""}</strong>
         </span>
       </section>
       {notice && (
@@ -191,7 +192,7 @@ export default function DocumentsPage() {
               <p>
                 {documents.length
                   ? "Try a different search."
-                  : "Upload a PDF or TXT file to start asking grounded questions."}
+                  : `Upload a ${meta?.accepted_extensions.join(" or ") ?? "supported"} file to start asking grounded questions.`}
               </p>
             </div>
           )}

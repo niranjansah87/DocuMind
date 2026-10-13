@@ -14,5 +14,9 @@
 **/*.tsbuildinfo
 **/pytest-cache-files-*/
 evaluation/results/*.json
+!evaluation/results/latest.json
 !.gitkeep
 prompt.txt
+/graphify-out
+
+/evaluation

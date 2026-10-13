@@ -10,6 +10,7 @@ class AppMetaResponse(BaseModel):
     max_query_chars: int
     suggested_questions: list[str]
     order_example: str
+    order_number_pattern: str
     embedding_model: str
     embedding_dimensions: int
     retrieval_strategy: str
@@ -34,3 +35,4 @@ class EvaluationResponse(BaseModel):
     chunk_sizes: list[int]
     status: str
     runs: list[dict[str, object]]
+    command: str

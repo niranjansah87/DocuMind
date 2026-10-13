@@ -67,6 +67,7 @@ export type AppMeta = {
   max_query_chars: number;
   suggested_questions: string[];
   order_example: string;
+  order_number_pattern: string;
   embedding_model: string;
   embedding_dimensions: number;
   retrieval_strategy: string;
@@ -85,4 +86,5 @@ export type EvaluationData = {
   chunk_sizes: number[];
   status: string;
   runs: Record<string, unknown>[];
+  command: string;
 };

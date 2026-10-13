@@ -3,7 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import logo from "../../../public/logo.png";
+import { getAppMeta } from "@/lib/api";
+import type { AppMeta } from "@/lib/types";
 import { Icon } from "./icons";
 
 const nav = [
@@ -14,6 +17,8 @@ const nav = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [meta, setMeta] = useState<AppMeta | null>(null);
+  useEffect(() => { getAppMeta().then(setMeta).catch(() => undefined); }, []);
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -27,7 +32,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="sidebar-foot">
-          <div className="scope-badge"><span>DM</span><div><strong>Demo workspace</strong><small>Single-user scope</small></div></div>
+          <div className="scope-badge"><span>DM</span><div><strong>{meta?.workspace_name ?? "Workspace"}</strong><small>{meta?.scope_label ?? ""}</small></div></div>
           <div className="secure-note"><Icon name="check" size={15} /> Sources stay server-side</div>
         </div>
       </aside>
