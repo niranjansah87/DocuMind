@@ -305,9 +305,6 @@ export default function EvaluationPage() {
               <span className="pill-dot purple" />
               <span>800 tokens</span>
             </div>
-            <button className="eval-add-chunk-btn" title="Add chunk size comparison">
-              <Icon name="plus" size={14} />
-            </button>
           </div>
         </div>
 

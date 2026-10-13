@@ -276,16 +276,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <motion.div
-        id="main-content"
-        className="app-content"
-        key={pathname}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-      >
+      <div id="main-content" className="app-content">
         {children}
-      </motion.div>
+      </div>
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {navItems.map((item) => {

@@ -177,7 +177,7 @@ export default function WorkspacePage() {
       const result = await uploadDocument(file);
       await refreshDocuments();
       setActiveDocId(result.document_id);
-      toast.success(`"${file.name}" uploaded successfully!`);
+      toast.success(`"${file.name}" uploaded successfully.`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Upload failed.";
       setError(msg);
@@ -191,7 +191,7 @@ export default function WorkspacePage() {
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
-    toast.success("Copied to clipboard!");
+    toast.success("Copied to clipboard.");
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -411,7 +411,7 @@ export default function WorkspacePage() {
           <div className="chat-messages-container">
             {messages.length === 0 ? (
               <motion.div
-                initial={{ opacity: 0, y: 16 }}
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
                 className="chat-welcome-empty"
@@ -540,16 +540,7 @@ export default function WorkspacePage() {
                               title="Copy response"
                             >
                               <Icon name="copy" size={15} />
-                              {copiedId === message.id && <span className="copied-tooltip">Copied!</span>}
-                            </button>
-                            <button className="msg-action-btn" title="Helpful response">
-                              <Icon name="thumb-up" size={15} />
-                            </button>
-                            <button className="msg-action-btn" title="Not helpful">
-                              <Icon name="thumb-down" size={15} />
-                            </button>
-                            <button className="msg-action-btn" title="More options">
-                              <Icon name="more" size={15} />
+                              {copiedId === message.id && <span className="copied-tooltip">Copied</span>}
                             </button>
                           </div>
                           <span className="action-timestamp">{message.time ?? "10:24 AM"}</span>
@@ -564,7 +555,7 @@ export default function WorkspacePage() {
           </div>
 
           {/* Suggested Questions bar */}
-          <div className="suggested-questions-container">
+          {messages.length > 0 && <div className="suggested-questions-container">
             <span className="suggested-label">Suggested questions</span>
             <div className="suggested-pills-row">
               {DEFAULT_SUGGESTIONS.map((item) => (
@@ -582,7 +573,7 @@ export default function WorkspacePage() {
                 </motion.button>
               ))}
             </div>
-          </div>
+          </div>}
 
           {/* Floating Chat Input Bar */}
           <div className="chat-composer-wrapper">
@@ -936,7 +927,7 @@ function TicketDialog({
     setError("");
     try {
       const res = await confirmTicket(pending.pending_action_id);
-      toast.success(`Support ticket ${res.ticket_number} created successfully!`);
+      toast.success(`Support ticket ${res.ticket_number} created successfully.`);
       onSuccess(res.ticket_number);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to confirm ticket.";

@@ -1,8 +1,8 @@
 # Frontend Architecture and UX Specification
 
-## 1. Overview and Design Fidelity
+## 1. Overview and Design Direction
 
-DocuMind's frontend is built with Next.js 16 (App Router), React 19, TypeScript, and native CSS styling faithfully reproducing the four visual mockups in `design/`:
+DocuMind's frontend is built with Next.js 16 (App Router), React 19, TypeScript, Motion, and native CSS. The interface uses a restrained editorial workspace rather than a generic card dashboard: a dark navigation rail, warm paper surfaces, one cobalt accent, compact status treatments, and motion limited to feedback and state changes. The four routes remain based on the workflows shown in `design/`:
 1. `Documind_workspace.png` → Route `/` (Workspace & Chat)
 2. `documind_documents_page.png` → Route `/documents` (Documents repository & drawer)
 3. `documind_documents_details_page.png` → Route `/documents/[id]` (Deep document inspection & PDF viewer)
@@ -14,7 +14,7 @@ All page layouts adhere to strict typographic hierarchy, responsive sidebars, cu
 
 ## 2. Global Navigation & Layout Shell (`AppShell`)
 
-- **Sidebar (Left):**
+- **Sidebar (Left, desktop):**
   - **Brand Header:** DocuMind logo mark, title, and collapse toggle.
   - **Primary Action:** `+ New Chat` button with `Ctrl K` keyboard shortcut badge.
   - **Main Navigation:**
@@ -26,6 +26,9 @@ All page layouts adhere to strict typographic hierarchy, responsive sidebars, cu
     - Active selection highlight with options menu.
   - **User Profile Footer:**
     - User avatar, name (`Niranjan Sah`), and workspace tag (`Personal Workspace`).
+- **Mobile navigation:**
+  - The desktop rail becomes a persistent three-item bottom navigation for Workspace, Documents, and Evaluation.
+  - Primary content is constrained to the viewport; wide document and evaluation tables scroll within their own regions.
 
 ---
 
