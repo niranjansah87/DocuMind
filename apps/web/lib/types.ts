@@ -57,3 +57,32 @@ export type ApiError = { error: { code: string; message: string; request_id: str
 export type TicketDraft = { subject: string; description: string; order_number?: string };
 export type PendingTicket = { pending_action_id: string; summary: string; expires_at: string };
 export type CreatedTicket = { ticket_id: string; ticket_number: string; status: string };
+
+export type AppMeta = {
+  application_name: string;
+  workspace_name: string;
+  scope_label: string;
+  accepted_extensions: string[];
+  max_upload_bytes: number;
+  max_query_chars: number;
+  suggested_questions: string[];
+  order_example: string;
+  embedding_model: string;
+  embedding_dimensions: number;
+  retrieval_strategy: string;
+  retrieval_top_k: number;
+  chunk_size_tokens: number;
+  chunk_overlap_tokens: number;
+};
+
+export type EvaluationQuestion = { id: string; question: string; expected_answer: string; gold_section: string };
+export type EvaluationData = {
+  dataset: string;
+  questions: EvaluationQuestion[];
+  embedding_model: string;
+  embedding_dimensions: number;
+  retrieval_strategy: string;
+  chunk_sizes: number[];
+  status: string;
+  runs: Record<string, unknown>[];
+};

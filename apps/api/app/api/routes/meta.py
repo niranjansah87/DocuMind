@@ -1,0 +1,53 @@
+import json
+from pathlib import Path
+
+from fastapi import APIRouter, Depends
+
+from app.core.config import Settings, get_settings
+from app.schemas.meta import AppMetaResponse, EvaluationQuestion, EvaluationResponse
+
+router = APIRouter(tags=["metadata"])
+
+
+def data_path(filename: str) -> Path:
+    container_path = Path("/data") / filename
+    return container_path if container_path.exists() else Path(__file__).parents[5] / "data" / filename
+
+
+@router.get("/meta", response_model=AppMetaResponse)
+async def app_meta(settings: Settings = Depends(get_settings)) -> AppMetaResponse:
+    return AppMetaResponse(
+        application_name="DocuMind",
+        workspace_name="Demo workspace",
+        scope_label="Single-user scope",
+        accepted_extensions=["PDF", "TXT"],
+        max_upload_bytes=settings.max_upload_bytes,
+        max_query_chars=settings.max_query_chars,
+        suggested_questions=[
+            "Summarize the return policy",
+            "What is covered by warranty?",
+            "Where is ORD-1002?",
+        ],
+        order_example="ORD-1002",
+        embedding_model=settings.embedding_model,
+        embedding_dimensions=settings.embedding_dimensions,
+        retrieval_strategy="PostgreSQL FTS + pgvector RRF",
+        retrieval_top_k=settings.retrieval_top_k,
+        chunk_size_tokens=settings.chunk_size_tokens,
+        chunk_overlap_tokens=settings.chunk_overlap_tokens,
+    )
+
+
+@router.get("/evaluation", response_model=EvaluationResponse)
+async def evaluation(settings: Settings = Depends(get_settings)) -> EvaluationResponse:
+    questions = [EvaluationQuestion.model_validate(item) for item in json.loads(data_path("gold_questions.json").read_text(encoding="utf-8"))]
+    return EvaluationResponse(
+        dataset="sample_knowledge_document.txt",
+        questions=questions,
+        embedding_model=settings.embedding_model,
+        embedding_dimensions=settings.embedding_dimensions,
+        retrieval_strategy="PostgreSQL FTS + pgvector RRF",
+        chunk_sizes=[300, 800],
+        status="pending",
+        runs=[],
+    )

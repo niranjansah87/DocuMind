@@ -83,7 +83,8 @@ class DocumentRepository:
     ) -> list[tuple[DocumentChunk, Document, float]]:
         pool_size = min(limit * 2, 40)
         vector_rows = await self.retrieve(owner_id, document_ids, embedding, pool_size)
-        query_vector = func.plainto_tsquery("english", query)
+        keyword_query = " OR ".join(query.replace('"', " ").split()[:32])
+        query_vector = func.websearch_to_tsquery("english", keyword_query)
         document_vector = func.to_tsvector("english", DocumentChunk.text)
         rank = func.ts_rank_cd(document_vector, query_vector)
         statement = (
@@ -105,7 +106,6 @@ class DocumentRepository:
         for rank_index, (chunk, document, _) in enumerate(keyword_rows, 1):
             previous = fused.get(chunk.id)
             score = 1 / (60 + rank_index) + (previous[0] if previous else 0)
-            distance = previous[3] if previous else 0.0
-            fused[chunk.id] = (score, chunk, document, distance)
+            fused[chunk.id] = (score, chunk, document, 0.0)
         rows = sorted(fused.values(), key=lambda item: item[0], reverse=True)[:limit]
         return [(chunk, document, distance) for _, chunk, document, distance in rows]

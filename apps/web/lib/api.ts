@@ -1,9 +1,11 @@
 import type {
   ApiError,
+  AppMeta,
   Citation,
   CreatedTicket,
   DocumentDetail,
   DocumentItem,
+  EvaluationData,
   PendingTicket,
   StreamResult,
   TicketDraft,
@@ -25,6 +27,18 @@ async function errorMessage(response: Response): Promise<string> {
 export async function checkHealth(signal?: AbortSignal): Promise<boolean> {
   const response = await fetch(`${API_BASE_URL}/health`, { signal, cache: "no-store" });
   return response.ok;
+}
+
+export async function getAppMeta(): Promise<AppMeta> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/meta`, { cache: "no-store" });
+  if (!response.ok) throw new Error(await errorMessage(response));
+  return response.json() as Promise<AppMeta>;
+}
+
+export async function getEvaluation(): Promise<EvaluationData> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/evaluation`, { cache: "no-store" });
+  if (!response.ok) throw new Error(await errorMessage(response));
+  return response.json() as Promise<EvaluationData>;
 }
 
 export async function listDocuments(): Promise<DocumentItem[]> {

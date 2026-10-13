@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.responses import Response
 
-from app.api.routes import chat, documents, health, tools
+from app.api.routes import chat, documents, health, meta, tools
 from app.core.config import get_settings
 from app.core.errors import AppError
 
@@ -65,6 +65,7 @@ def create_app() -> FastAPI:
     application.include_router(documents.router, prefix="/api/v1")
     application.include_router(chat.router, prefix="/api/v1")
     application.include_router(tools.router, prefix="/api/v1")
+    application.include_router(meta.router, prefix="/api/v1")
     return application
 
 
