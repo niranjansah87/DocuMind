@@ -4,10 +4,10 @@ DocuMind is an enterprise-grade, document-grounded question-and-answer assistant
 
 > **Production Hardening Status — Complete, Verified, and Audited:**
 > - **Branch:** `feature/documind-production-hardening`
-> - **Backend Test Suite:** 42 automated tests passing (`pytest`, `ruff`, strict `mypy`).
-> - **Frontend Build:** All 8 static and dynamic Next.js routes compiled cleanly with Turbopack.
-> - **Security & Guardrails:** Dual-mode token authentication, dedicated `/login` credentials manager, tenant scoping, sliding-window rate limiting (429), CSP & security headers, automated credential scrubbing in logs.
-> - **Observability & SRE:** Structured JSON logging, request ID tracing (`contextvars`), Prometheus metrics (`/metrics`), operational runbooks.
+> - **Backend Test Suite:** 50 automated tests passing (`pytest`, `ruff`, strict `mypy`).
+> - **Frontend Build:** All 8 static and dynamic Next.js routes compiled cleanly with Turbopack (0 lint errors, 0 type errors).
+> - **Security & Guardrails:** Credential-bound tenant identity with anti-impersonation (403), production startup config validation, proxy-trust verified rate limiting (429) bounded at 10k clients, private cache-control headers, token-restricted `/metrics`.
+> - **Observability & SRE:** Structured JSON logging, sanitized request ID tracing, authenticated Prometheus metrics, operational runbooks, and tested backup/restore scripts (`scripts/backup.sh`, `scripts/restore.sh`).
 > - **SEO & Privacy:** Dynamic `robots.txt` and `sitemap.xml` strictly excluding private document paths and `/login`.
 
 ---
@@ -163,17 +163,20 @@ This automatically provisions PostgreSQL with `pgvector`, runs database migratio
 
 1. **Authentication & Multi-Tenant Isolation:**
    - **Dedicated Frontend Auth Page (`/login`):** Provides a production-grade credential manager matching the dark aesthetic. Allows operators and reviewers to configure credentials, Bearer tokens, or API keys, switch tenant IDs (`X-Owner-Id`), verify connection status via `GET /api/v1/auth/verify`, and seamlessly switch back to Reviewer Demo Mode with a single click.
-   - **Local Mode (`AUTH_REQUIRED=false`):** Defaults to `DEMO_OWNER_ID`. Allows clean-machine testing without tokens while honoring `X-Owner-Id` for isolated multi-tenant testing.
-   - **Production Mode (`AUTH_REQUIRED=true`):** Requires Bearer token (`Authorization: Bearer <token>`) or API key (`X-API-Key: <key>`). Missing credentials produce `401 UNAUTHORIZED`; invalid credentials produce `403 FORBIDDEN`.
+   - **Credential-Bound Tenant Identity:** Tenant identity is strictly derived from the verified credential (`TENANT_API_KEYS` dictionary or `DEFAULT_TENANT_ID`). Any attempt by an authenticated client to pass a mismatched `X-Owner-Id` or `X-User-Id` is rejected with `403 FORBIDDEN` to prevent tenant impersonation.
+   - **Production Mode (`AUTH_REQUIRED=true`):** Requires Bearer token (`Authorization: Bearer <token>`) or API key (`X-API-Key: <key>`). Missing credentials produce `401 UNAUTHORIZED`; invalid credentials produce `403 FORBIDDEN`. Startup validation strictly blocks launch if placeholder keys or default passwords are used in production.
+   - **Local Mode (`AUTH_REQUIRED=false`):** Defaults to `DEMO_OWNER_ID`. Allows clean-machine testing without tokens while honoring `X-Owner-Id` for isolated multi-tenant testing in development.
    - **Database Scoping:** All chunks, embeddings, orders, and tickets are strictly filtered by `owner_id` at the database query layer.
-2. **Sliding-Window Rate Limiting:**
-   - In-memory rate limiter protects expensive operations:
+2. **Sliding-Window Rate Limiting & Request Trust:**
+   - In-memory rate limiter protects expensive operations with proxy-trust verification (only inspects `X-Forwarded-For` from `trusted_proxies` to prevent header spoofing):
      - Document uploads: 15 / minute
      - Chat & LLM calls: 60 / minute
      - Ticket operations: 30 / minute
      - General API: 120 / minute
+   - Memory bounded at `MAX_TRACKED_CLIENTS = 10,000` with automated LRU eviction to prevent memory-exhaustion DoS attacks.
    - Rejections return `429 Too Many Requests` with `Retry-After: 60`.
-3. **Defensive HTTP Security Headers:**
+3. **Defensive HTTP Security & Cache Headers:**
+   - `Cache-Control: no-store, no-cache, must-revalidate, private` on all `/api/v1/*` endpoints to prevent intermediate shared proxy caches from leaking private tenant data.
    - `X-Content-Type-Options: nosniff`
    - `X-Frame-Options: DENY`
    - `Referrer-Policy: strict-origin-when-cross-origin`
@@ -272,7 +275,7 @@ The 15-question gold evaluation dataset is defined in [`docs/evaluation/GOLD_QUE
 
 ### Running Backend Checks
 ```bash
-# Run 42 automated tests (unit, security, rate limiting, isolation)
+# Run 50 automated tests (unit, security, rate limiting, isolation, impersonation defense)
 uv run --directory apps/api pytest
 
 # Fast linting
@@ -281,7 +284,7 @@ uv run --directory apps/api ruff check app tests
 # Strict static type checking (63 source files)
 uv run --directory apps/api mypy app tests
 ```
-*Status: 42 passed, 0 lint errors, 0 type errors.*
+*Status: 50 passed, 0 lint errors, 0 type errors.*
 
 ### Running Frontend Checks
 ```bash

@@ -8,15 +8,16 @@ Before promoting any release to staging or production, verify all automated chec
 - [ ] **Backend Quality Suite:**
   - `uv run --directory apps/api ruff check app tests` (0 lint errors)
   - `uv run --directory apps/api mypy app tests` (0 type errors across all source files)
-  - `uv run --directory apps/api pytest` (100% tests passing)
+  - `uv run --directory apps/api pytest` (100% tests passing, 50 automated tests)
 - [ ] **Frontend Quality Suite:**
   - `npm run typecheck --prefix apps/web` (0 TypeScript errors)
   - `npm run lint --prefix apps/web` (0 ESLint errors/warnings)
-  - `npm run build --prefix apps/web` (Successful Turbopack production build)
+  - `npm run build --prefix apps/web` (Successful Turbopack production build, 8/8 routes)
 - [ ] **Security Checks:**
   - No secrets or credentials committed in Git.
   - Dependencies audited with zero known high/critical vulnerabilities.
-  - Rate limiting active and configured appropriately for traffic tier.
+  - Rate limiting active with proxy trust validation and bounded client tracking.
+  - Multi-tenant credential binding verified with cross-tenant impersonation blocked.
 - [ ] **Database Migrations:**
   - Alembic migration scripts tested with `uv run alembic upgrade head` on test instance.
   - Migrations are backwards-compatible and non-blocking.
@@ -28,7 +29,7 @@ Before promoting any release to staging or production, verify all automated chec
 ## 2. Deployment Execution Sequence
 
 1. **Snapshot Database:**
-   Execute a pre-deployment backup using `pg_dump -Fc` per [`BACKUP_AND_RESTORE.md`](BACKUP_AND_RESTORE.md).
+   Execute a pre-deployment backup using `./scripts/backup.sh` per [`BACKUP_AND_RESTORE.md`](BACKUP_AND_RESTORE.md).
 2. **Apply Migrations:**
    ```bash
    uv run alembic upgrade head
