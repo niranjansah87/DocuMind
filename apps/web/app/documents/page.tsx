@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Icon } from "@/components/icons";
 import { deleteDocument, getAppMeta, getDocument, listDocuments, uploadDocument } from "@/lib/api";
 import type { AppMeta, DocumentDetail, DocumentItem } from "@/lib/types";
@@ -19,6 +20,8 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState<ExtendedDocumentItem[]>([]);
   const [selectedDocId, setSelectedDocId] = useState<string>("");
   const [selectedDocDetail, setSelectedDocDetail] = useState<DocumentDetail | null>(null);
+  const [docToDelete, setDocToDelete] = useState<DocumentItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [filter, setFilter] = useState<"all" | "processing" | "completed" | "failed">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [meta, setMeta] = useState<AppMeta | null>(null);
@@ -116,24 +119,29 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleDelete = async (doc: DocumentItem) => {
-    if (!window.confirm(`Delete ${doc.filename}?`)) return;
+  const confirmDelete = async () => {
+    if (!docToDelete) return;
+    setDeleting(true);
     try {
-      await deleteDocument(doc.document_id);
-      setDocuments((curr) => curr.filter((d) => d.document_id !== doc.document_id));
-      const msg = `${doc.filename} deleted.`;
+      await deleteDocument(docToDelete.document_id);
+      setDocuments((curr) => curr.filter((d) => d.document_id !== docToDelete.document_id));
+      const msg = `"${docToDelete.filename}" deleted successfully.`;
       setNotice(msg);
       toast.success(msg);
-      if (selectedDocId === doc.document_id) {
+      if (selectedDocId === docToDelete.document_id) {
         setSelectedDocId("");
         setSelectedDocDetail(null);
       }
+      setDocToDelete(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Delete failed.";
       setError(msg);
       toast.error(msg);
+    } finally {
+      setDeleting(false);
     }
   };
+
 
   const filteredDocs = useMemo(() => {
     return documents.filter((doc) => {
@@ -307,7 +315,7 @@ export default function DocumentsPage() {
                 </th>
                 <th className="th-type">Type</th>
                 <th className="th-size">Size</th>
-                <th className="th-chunks">Chunks</th>
+                <th className="th-chunks">Pages</th>
                 <th className="th-status">Status</th>
                 <th className="th-uploaded">
                   <span>Uploaded</span>
@@ -348,7 +356,7 @@ export default function DocumentsPage() {
                 filteredDocs.map((doc, idx) => {
                   const isSelected = selectedDoc?.document_id === doc.document_id;
                   const isPdf = doc.filename.toLowerCase().endsWith(".pdf");
-                  const chunkCount = doc.page_count ? doc.page_count * 2 : 1;
+                  const chunkEstimate = doc.page_count ? doc.page_count * 2 : 1;
 
                   return (
                     <motion.tr
@@ -381,7 +389,9 @@ export default function DocumentsPage() {
                         </span>
                       </td>
                       <td className="td-size">{formatFileSize(doc.byte_size)}</td>
-                      <td className="td-chunks">{doc.status === "failed" ? "—" : chunkCount}</td>
+                      <td className="td-chunks">
+                        {doc.status === "failed" ? "—" : chunkEstimate}
+                      </td>
                       <td className="td-status">
                         <span className={`status-badge-cell ${doc.status === "ready" ? "completed" : doc.status}`}>
                           <span className="status-dot" />
@@ -445,7 +455,7 @@ export default function DocumentsPage() {
             <button
               className="drawer-close-btn"
               title="Delete document"
-              onClick={() => handleDelete(selectedDoc)}
+              onClick={() => setDocToDelete(selectedDoc)}
               style={{ marginRight: 6 }}
             >
               <Icon name="trash" size={16} />
@@ -469,7 +479,9 @@ export default function DocumentsPage() {
                 {selectedDoc.status === "ready" ? "Completed" : selectedDoc.status === "processing" ? "Processing" : "Failed"}
               </span>
               <span className="drawer-chunks-stat">
-                {selectedDocDetail?.chunk_count ?? (selectedDoc.page_count ? selectedDoc.page_count * 2 : 1)} chunks
+                {selectedDocDetail?.chunk_count != null
+                  ? `${selectedDocDetail.chunk_count} chunk${selectedDocDetail.chunk_count === 1 ? "" : "s"}`
+                  : "Loading chunks..."}
                 {selectedDocDetail?.chunks ? ` • ${selectedDocDetail.chunks.reduce((sum, c) => sum + (c.token_count || 0), 0)} tokens` : ""}
               </span>
             </div>
@@ -657,7 +669,20 @@ export default function DocumentsPage() {
         </motion.aside>
       )}
     </AnimatePresence>
-  </main>
-);
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={Boolean(docToDelete)}
+        title="Delete Document"
+        description={`Are you sure you want to delete "${docToDelete?.filename}"? All associated chunk vectors and embeddings will be permanently removed.`}
+        confirmLabel="Delete Document"
+        cancelLabel="Cancel"
+        variant="danger"
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDocToDelete(null)}
+      />
+    </main>
+  );
 }
 

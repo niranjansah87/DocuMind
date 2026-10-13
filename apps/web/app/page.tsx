@@ -15,17 +15,16 @@ import {
   streamChat,
   uploadDocument,
 } from "@/lib/api";
+import {
+  getActiveConversationId,
+  getConversation,
+  saveConversation,
+  setActiveConversationId,
+  type ChatMessage,
+} from "@/lib/conversations";
 import type { AppMeta, Citation, DocumentItem, PendingTicket } from "@/lib/types";
 
-type Message = {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
-  route?: string;
-  citations?: Citation[];
-  latencyMs?: number;
-  time?: string;
-};
+type Message = ChatMessage;
 
 const DEFAULT_SUGGESTIONS = [
   "What items are not eligible for refund?",
@@ -44,8 +43,28 @@ const DEFAULT_SUGGESTIONS = [
 export default function WorkspacePage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [meta, setMeta] = useState<AppMeta | null>(null);
-  const [activeDocId, setActiveDocId] = useState<string>("");
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [activeDocId, setActiveDocId] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    const activeId = getActiveConversationId();
+    if (activeId) {
+      const conv = getConversation(activeId);
+      if (conv?.documentId) return conv.documentId;
+    }
+    return "";
+  });
+  const [currentConvId, setCurrentConvId] = useState<string>(() => {
+    if (typeof window === "undefined") return crypto.randomUUID();
+    return getActiveConversationId() || crypto.randomUUID();
+  });
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window === "undefined") return [];
+    const activeId = getActiveConversationId();
+    if (activeId) {
+      const conv = getConversation(activeId);
+      if (conv?.messages) return conv.messages;
+    }
+    return [];
+  });
   const [question, setQuestion] = useState("");
   const [stage, setStage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -72,7 +91,7 @@ export default function WorkspacePage() {
         setMeta(appMeta);
         if (items.length > 0) {
           const readyDoc = items.find((d) => d.status === "ready") || items[0];
-          setActiveDocId(readyDoc.document_id);
+          setActiveDocId((curr) => curr || readyDoc.document_id);
         }
       } catch (reason) {
         if (!isMounted) return;
@@ -80,11 +99,30 @@ export default function WorkspacePage() {
       }
     })();
 
+
     // Listen to global events from sidebar
     const handleNewChat = () => {
+      const newId = crypto.randomUUID();
+      setCurrentConvId(newId);
+      setActiveConversationId(newId);
       setMessages([]);
       setError("");
       setQuestion("");
+    };
+
+    const handleLoadConversation = (e: CustomEvent<string>) => {
+      const convId = e.detail;
+      const conv = getConversation(convId);
+      if (conv) {
+        setCurrentConvId(conv.id);
+        setActiveConversationId(conv.id);
+        setMessages(conv.messages);
+        if (conv.documentId) {
+          setActiveDocId(conv.documentId);
+        }
+        setError("");
+        toast.info(`Loaded: ${conv.title}`);
+      }
     };
 
     const handleLoadPrompt = (e: CustomEvent<string>) => {
@@ -92,11 +130,19 @@ export default function WorkspacePage() {
     };
 
     window.addEventListener("documind:new-chat", handleNewChat as EventListener);
+    window.addEventListener(
+      "documind:load-conversation",
+      handleLoadConversation as EventListener,
+    );
     window.addEventListener("documind:load-prompt", handleLoadPrompt as EventListener);
 
     return () => {
       isMounted = false;
       window.removeEventListener("documind:new-chat", handleNewChat as EventListener);
+      window.removeEventListener(
+        "documind:load-conversation",
+        handleLoadConversation as EventListener,
+      );
       window.removeEventListener("documind:load-prompt", handleLoadPrompt as EventListener);
       controller.current?.abort();
     };
@@ -218,8 +264,8 @@ export default function WorkspacePage() {
         );
       }
 
-      setMessages((current) =>
-        current.map((item) =>
+      setMessages((current) => {
+        const next = current.map((item) =>
           item.id === assistantId
             ? {
                 ...item,
@@ -229,8 +275,13 @@ export default function WorkspacePage() {
                 latencyMs: result.latencyMs,
               }
             : item,
-        ),
-      );
+        );
+        saveConversation(currentConvId, next, {
+          id: activeDoc?.document_id,
+          name: activeDoc?.filename,
+        });
+        return next;
+      });
 
       if (result.citations && result.citations.length > 0) {
         setActiveCitation(result.citations[0]);
@@ -295,9 +346,11 @@ export default function WorkspacePage() {
                 </div>
                 <div className="doc-subtitle-row">
                   <span>
-                    {activeDoc.page_count != null ? `${activeDoc.page_count * 2} chunks` : "—"} •{" "}
-                    {(activeDoc.byte_size / (1024 * 1024)).toFixed(1)} MB •{" "}
-                    Uploaded {new Date(activeDoc.created_at).toLocaleDateString()}
+                    {activeDoc.page_count != null ? `${activeDoc.page_count} ${activeDoc.page_count === 1 ? "page" : "pages"}` : "Text document"} •{" "}
+                    {activeDoc.byte_size >= 1024 * 1024
+                      ? `${(activeDoc.byte_size / (1024 * 1024)).toFixed(1)} MB`
+                      : `${Math.round(activeDoc.byte_size / 1024)} KB`}{" "}
+                    • Uploaded {new Date(activeDoc.created_at).toLocaleDateString()}
                   </span>
                 </div>
               </>
@@ -411,16 +464,38 @@ export default function WorkspacePage() {
                     </div>
                     <div className="assistant-message-card">
                       {/* Search indicator banner */}
-                      <div className="searched-documents-banner">
-                        <div className="searched-banner-left">
-                          <Icon name="check-circle" size={16} className="text-green-600" />
-                          <span className="searched-title">Searched documents</span>
-                          <span className="searched-count">
-                            Found {message.citations?.length ?? 3} relevant chunks
-                          </span>
+                      {(message.citations && message.citations.length > 0) ? (
+                        <div
+                          className="searched-documents-banner"
+                          onClick={() => {
+                            if (message.citations && message.citations.length > 0) {
+                              setActiveCitation(message.citations[0]);
+                              setActiveTab("sources");
+                              setInspectorOpen(true);
+                            }
+                          }}
+                          title="Click to view verified source chunks in Inspector"
+                        >
+                          <div className="searched-banner-left">
+                            <Icon name="check-circle" size={16} className="text-emerald-600" />
+                            <span className="searched-title">Grounded in documents</span>
+                            <span className="searched-count">
+                              {message.citations.length} verified citation{message.citations.length === 1 ? "" : "s"}
+                            </span>
+                          </div>
+                          <Icon name="chevron-right" size={14} className="text-emerald-700" />
                         </div>
-                        <Icon name="chevron-down" size={14} />
-                      </div>
+                      ) : message.route === "order_tool" ? (
+                        <div className="searched-documents-banner bg-indigo-50 border-indigo-200">
+                          <div className="searched-banner-left">
+                            <Icon name="tune" size={16} className="text-indigo-600" />
+                            <span className="searched-title text-indigo-700">Database tool executed</span>
+                            <span className="searched-count text-indigo-600">
+                              Order lookup verified
+                            </span>
+                          </div>
+                        </div>
+                      ) : null}
 
                       {/* Message text */}
                       <div className="assistant-text-content">
@@ -651,19 +726,31 @@ export default function WorkspacePage() {
                           <div className="source-card-header">
                             <div className="source-card-title-group">
                               <Icon name="file" size={15} className="text-blue-600" />
-                              <span className="source-title-text">Source {idx + 1}</span>
-                              <span className="source-page-badge">
-                                p. {citation.page_start ?? idx + 1}
+                              <span className="source-title-text truncate max-w-[140px]" title={citation.document_name}>
+                                {citation.document_name || `Source ${idx + 1}`}
                               </span>
+                              {citation.page_start != null ? (
+                                <span className="source-page-badge">
+                                  p. {citation.page_start}{citation.page_end && citation.page_end !== citation.page_start ? `–${citation.page_end}` : ""}
+                                </span>
+                              ) : (
+                                <span className="source-page-badge">
+                                  Chunk #{citation.chunk_index + 1}
+                                </span>
+                              )}
                             </div>
-                            <Icon name="chevron-down" size={14} />
+                            <span className="text-[11px] font-mono text-slate-400">
+                              #{citation.chunk_index + 1}
+                            </span>
                           </div>
 
                           <div className="source-card-body-row">
                             <div className="source-card-text-col">
-                              <h4 className="source-section-heading">
-                                {citation.section ?? `Section ${idx + 1}`}
-                              </h4>
+                              {citation.section && (
+                                <h4 className="source-section-heading">
+                                  {citation.section}
+                                </h4>
+                              )}
                               <p className="source-excerpt-paragraph">{citation.quote}</p>
                             </div>
 
@@ -714,9 +801,9 @@ export default function WorkspacePage() {
                     </span>
                   </div>
                   <div className="info-group">
-                    <span className="info-label">Total chunks</span>
+                    <span className="info-label">Page count</span>
                     <span className="info-value">
-                      {activeDoc?.page_count != null ? activeDoc.page_count * 2 : "—"}
+                      {activeDoc?.page_count != null ? `${activeDoc.page_count} pages` : "N/A (Plain text)"}
                     </span>
                   </div>
                   <div className="info-group">
@@ -777,15 +864,22 @@ export default function WorkspacePage() {
           meta={meta}
           onClose={() => setTicketModalOpen(false)}
           onSuccess={(ticketNumber) => {
-            setMessages((curr) => [
-              ...curr,
-              {
-                id: crypto.randomUUID(),
-                role: "assistant",
-                text: `Support ticket **${ticketNumber}** has been confirmed and submitted to the queue. Our support specialists will respond shortly.`,
-                time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              },
-            ]);
+            setMessages((curr) => {
+              const updated = [
+                ...curr,
+                {
+                  id: crypto.randomUUID(),
+                  role: "assistant" as const,
+                  text: `Support ticket **${ticketNumber}** has been confirmed and submitted to the queue. Our support specialists will respond shortly.`,
+                  time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                },
+              ];
+              saveConversation(currentConvId, updated, {
+                id: activeDoc?.document_id,
+                name: activeDoc?.filename,
+              });
+              return updated;
+            });
             setTicketModalOpen(false);
           }}
         />

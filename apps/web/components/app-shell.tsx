@@ -10,6 +10,14 @@ import { Icon } from "./icons";
 import { getAppMeta } from "@/lib/api";
 import { getAuthToken, getTenantId } from "@/lib/auth";
 
+import {
+  listConversations,
+  getActiveConversationId,
+  setActiveConversationId,
+  deleteConversation,
+  type Conversation,
+} from "@/lib/conversations";
+
 const navItems = [
   { href: "/", label: "Chat", icon: "chat" as const },
   { href: "/documents", label: "Documents", icon: "documents" as const },
@@ -20,6 +28,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [tenantLabel, setTenantLabel] = useState<string>("Reviewer Scope");
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const syncConversations = () => {
+      setConversations(listConversations());
+      setActiveConvId(getActiveConversationId());
+    };
+
+    syncConversations();
+    window.addEventListener("storage", syncConversations);
+    window.addEventListener("documind:conversations-changed", syncConversations);
+    return () => {
+      window.removeEventListener("storage", syncConversations);
+      window.removeEventListener("documind:conversations-changed", syncConversations);
+    };
+  }, []);
 
   useEffect(() => {
     const updateLabel = () => {
@@ -170,13 +195,70 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* Recent Conversations — empty state (no persistent chat history in this demo) */}
+        {/* Recent Conversations */}
         <div className="recent-conversations-section">
-          <div className="recent-heading">RECENT CONVERSATIONS</div>
-          <div className="recent-empty-state">
-            <Icon name="chat" size={16} />
-            <span>Start a new chat to begin.</span>
+          <div className="flex items-center justify-between px-2 pb-2">
+            <span className="recent-heading p-0">RECENT CONVERSATIONS</span>
+            {conversations.length > 0 && (
+              <span className="text-[10px] text-slate-400 font-mono font-medium">
+                {conversations.length}
+              </span>
+            )}
           </div>
+
+          {conversations.length === 0 ? (
+            <div className="recent-empty-state">
+              <Icon name="chat" size={16} />
+              <span>Start a new chat to begin.</span>
+            </div>
+          ) : (
+            <div className="recent-list">
+              {conversations.slice(0, 15).map((conv) => {
+                const isSelected = pathname === "/" && activeConvId === conv.id;
+                const formattedTime = new Date(conv.updatedAt).toLocaleDateString([], {
+                  month: "short",
+                  day: "numeric",
+                });
+                return (
+                  <div
+                    key={conv.id}
+                    className={`recent-item group ${isSelected ? "selected" : ""}`}
+                    onClick={() => {
+                      setActiveConversationId(conv.id);
+                      if (pathname !== "/") {
+                        router.push(`/?conversation=${conv.id}`);
+                      } else {
+                        window.dispatchEvent(
+                          new CustomEvent("documind:load-conversation", { detail: conv.id }),
+                        );
+                      }
+                    }}
+                    title={conv.title}
+                  >
+                    <div className="recent-info min-w-0 flex-1">
+                      <span className="recent-title">{conv.title}</span>
+                      <span className="recent-time">
+                        {conv.documentName ? `${conv.documentName} • ` : ""}
+                        {formattedTime}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="recent-menu-btn opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all p-1"
+                      title="Delete conversation"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteConversation(conv.id);
+                        toast.success("Conversation deleted");
+                      }}
+                    >
+                      <Icon name="trash" size={13} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Bottom User Profile */}

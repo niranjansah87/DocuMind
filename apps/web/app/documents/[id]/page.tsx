@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Icon } from "@/components/icons";
 import { deleteDocument, getAppMeta, getDocument } from "@/lib/api";
 import type { AppMeta, DocumentDetail } from "@/lib/types";
@@ -15,6 +16,8 @@ export default function DocumentDetailPage() {
   const [document, setDocument] = useState<DocumentDetail | null>(null);
   const [meta, setMeta] = useState<AppMeta | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState<"preview" | "extracted" | "chunks">("preview");
   const [activeInspectorTab, setActiveInspectorTab] = useState<"details" | "chunks" | "related">("details");
   const [currentPage, setCurrentPage] = useState(1);
@@ -41,17 +44,21 @@ export default function DocumentDetailPage() {
     };
   }, [id]);
 
-  const handleDelete = async () => {
+  const confirmDelete = async () => {
     if (!document) return;
-    if (!window.confirm(`Delete "${document.filename}"? This cannot be undone.`)) return;
+    setDeleting(true);
     try {
       await deleteDocument(document.document_id);
       toast.success(`"${document.filename}" deleted successfully.`);
+      setShowDeleteDialog(false);
       router.push("/documents");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Delete failed.");
+    } finally {
+      setDeleting(false);
     }
   };
+
 
   const totalPages = document?.page_count || 1;
 
@@ -154,7 +161,10 @@ export default function DocumentDetailPage() {
             <Icon name="download" size={15} />
             <span>Download</span>
           </button>
-          <button className="detail-action-btn outline danger" onClick={handleDelete}>
+          <button
+            className="detail-action-btn outline danger"
+            onClick={() => setShowDeleteDialog(true)}
+          >
             <Icon name="trash" size={15} />
             <span>Delete</span>
           </button>
@@ -488,6 +498,19 @@ export default function DocumentDetailPage() {
           </div>
         </aside>
       </div>
+
+      {/* Delete Document Confirmation Dialog */}
+      <ConfirmDialog
+        open={showDeleteDialog}
+        title="Delete Document"
+        description={`Are you sure you want to delete "${document?.filename}"? All associated chunk vectors and embeddings will be permanently removed.`}
+        confirmLabel="Delete Document"
+        cancelLabel="Cancel"
+        variant="danger"
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteDialog(false)}
+      />
     </motion.main>
   );
 }
