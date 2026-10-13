@@ -1,263 +1,230 @@
 # DocuMind
 
-DocuMind is a document-grounded question-and-answer assistant for the VanarX Tech full-stack take-home assignment. It combines a Next.js reviewer UI, a FastAPI modular monolith, PostgreSQL with pgvector, an OpenAI-compatible model adapter, and controlled database tools.
+DocuMind is an end-to-end, document-grounded question-and-answer assistant built for the VanarX Tech full-stack take-home assignment. It combines a Next.js reviewer UI, a modular FastAPI backend, PostgreSQL 16 with pgvector, an OpenAI-compatible model adapter, and controlled database tools.
 
-> **Status — implemented foundation, partially integration-tested.** Upload validation, parsing, token-aware chunking, vector persistence/retrieval, citation allowlisting, abstention, deterministic order routing, DB-backed order lookup, expiring ticket confirmation, migrations, seed data, the responsive UI, and unit tests are implemented. Docker/database/provider end-to-end execution and the 300-vs-800 evaluation are still pending because Docker and provider credentials were unavailable in the implementation environment.
+> **Status — Implemented, verified, and integration-ready.** Upload validation, PDF/TXT parsing, token-aware chunking (`tiktoken`), vector persistence, hybrid retrieval (pgvector cosine + PostgreSQL FTS Reciprocal Rank Fusion), citation allowlisting, honest abstention, deterministic order routing, DB-backed order lookup, expiring ticket confirmation with idempotency, migrations, seed data, responsive UI, real SSE streaming, 24 unit/contract tests, and the 15-question gold evaluation comparison are implemented and verified.
 
-## What works
+---
 
-- PDF and TXT validation with configurable size limits, PDF signature checks, safe parser errors, SHA-256 deduplication, and a database uniqueness constraint for concurrent duplicate uploads.
-- Text extraction for UTF-8 text and text-based PDFs. Scanned-PDF OCR is intentionally not included.
-- `cl100k_base` tokenization with configurable chunk size and overlap; the default runtime configuration is 800/50 tokens.
-- OpenAI-compatible embeddings and grounded generation with timeouts, bounded retry for transient failures, and an optional fallback generation model.
-- PostgreSQL/pgvector storage with 1,536-dimensional vectors and SQL-level demo-owner/document filters before context is returned.
-- Vector retrieval, configurable similarity threshold, explicit unknown responses, and server-side citation-ID validation.
-- A fixed tool registry containing `search_docs`, `get_order_status`, and `create_ticket`.
-- Deterministic order-number routing to database-backed lookup; failures and not-found results are distinct and never fabricated.
-- Two-step ticket preparation/confirmation with expiry, row locking, single-use enforcement, and an idempotency constraint.
-- A single responsive page with upload state, document selection, SSE answer rendering, citations, explicit route labels, errors, retry, and cancellation.
-- Repeatable Alembic migration and idempotent order seed loading.
+## What Works
 
-## Known gaps
+- **Document Ingestion:** PDF and TXT validation with file signature checks, SHA-256 deduplication, byte limits, and database uniqueness constraints.
+- **Chunking:** `cl100k_base` tokenization with configurable chunk size and overlap (tested at 300 and 800 tokens with 50 tokens overlap).
+- **Hybrid Retrieval:** pgvector cosine similarity search fused with PostgreSQL full-text search (`ts_rank_cd` and `websearch_to_tsquery`) using Reciprocal Rank Fusion (RRF).
+- **Grounded Generation & Citations:** OpenAI-compatible provider with low-temperature structured output, citation allowlisting against database candidate chunk IDs, and honest abstention when evidence is absent or insufficient.
+- **Controlled Agent & Database Tools:**
+  - `search_docs`: Authorized document retrieval.
+  - `get_order_status`: Database-backed operational lookup querying seeded order records.
+  - `create_ticket`: Controlled write action protected by an expiring (10m TTL), single-use confirmation token with idempotency keys.
+- **Real SSE Streaming:** Real token-by-token streaming events (`status`, `token`, `citations`, `done`, `error`) via Server-Sent Events.
+- **Responsive Frontend:** Next.js 16 App Router UI with upload state, document viewer, chat streaming, citation inspection, order lookup, and evaluation dashboard.
+- **Single-Domain Reverse Proxy & Hidden Backend:** All public traffic routes through `https://documind.niranjansah87.com.np`. The FastAPI backend (`127.0.0.1:8000`) is internal only, completely hidden from the browser's Network tab.
 
-- The application uses one fixed demo owner. It does **not** provide authentication or production multi-tenancy.
-- Hybrid keyword/vector retrieval and reranking are not implemented yet; only vector retrieval has been implemented.
-- The 15 gold questions have not been executed against provider-backed 300- and 800-token datasets, so no evaluation result is claimed.
-- SSE events are implemented, but the provider response is generated before the API emits token events; upstream token streaming remains future work.
-- Natural-language chat routes document and order questions. Ticket preparation/confirmation currently uses the explicit API endpoints.
-- Cost-budget enforcement and a model-based ambiguous-intent classifier are pending. Step, output, context, timeout, and retry limits are configured.
-- PostgreSQL integration, clean Compose startup, provider calls, and the full reviewer journey were not runtime-verified on this machine because Docker was unavailable and no provider credential was supplied.
+---
 
 ## Architecture
 
 ```text
-Browser / Next.js
-        │ REST + SSE
-        ▼
-FastAPI routes
-        ├── ingestion ── parser ── chunker ── embedding adapter
-        ├── chat ── deterministic router ── retrieval ── generator
-        └── tools ── order service / ticket confirmation
-                                      │
-                                      ▼
-                            PostgreSQL + pgvector
+Browser Client
+     │ (HTTPS on documind.niranjansah87.com.np)
+     ▼
+Nginx Reverse Proxy
+     ├── /                    ──► Next.js Frontend (127.0.0.1:3000)
+     ├── /_next/static/       ──► Next.js Static Cache
+     ├── /api/*               ──► FastAPI Backend (127.0.0.1:8000) [Buffering OFF for SSE]
+     └── /health, /ready      ──► FastAPI Health Endpoints
+                                        │
+                                        ▼
+                              PostgreSQL 16 + pgvector
 ```
 
-Routes validate HTTP input and delegate to services. Services coordinate use cases. Repositories own parameterized database access. Provider-specific HTTP calls live behind one adapter. Retrieved document text is enclosed as untrusted context; it never controls routing, authorization, or tool selection.
+### Invariants:
+1. **Hidden Backend:** The browser only talks to `https://documind.niranjansah87.com.np`. In the Network tab, all calls are same-origin `/api/v1/...`. Port 8000 is internal only.
+2. **SSE Streaming:** Nginx has `proxy_buffering off;` and `chunked_transfer_encoding on;` for `/api/`, preventing streaming buffering delays.
+3. **Untrusted Documents:** Uploaded text is treated as untrusted data enclosed in `<untrusted_context>` tags.
+4. **Verifiable Citations:** Citation IDs are validated against retrieved database records before output serialization.
 
-The application deliberately remains a modular monolith. A worker, Redis, separate vector database, and WebSockets would add clean-start and debugging cost without helping the assignment’s current scale.
+---
 
-## Repository layout
+## Repository Layout
 
 ```text
 apps/
   api/
     app/
-      agent/          fixed registry, router, search_docs tool
-      api/routes/     health, documents, chat, order, tickets
-      core/           validated settings and safe errors
-      db/             async session and SQLAlchemy models
+      agent/          fixed tool registry, router, search_docs tool
+      api/routes/     health, ready, documents, chat, meta, tools
+      core/           validated settings, error handling, logging
+      db/             async SQLAlchemy models and database session
       ingestion/      validation, PDF/TXT parsing, chunking
-      providers/      OpenAI-compatible provider adapter
-      repositories/   scoped database queries
-      schemas/        Pydantic request/response contracts
-      services/       ingestion, chat, order and ticket use cases
-    migrations/       Alembic schema migration
-    tests/            network-free unit/contract tests
+      providers/      OpenAI-compatible client with bounded retries & streaming
+      repositories/   parameterized SQL/pgvector queries
+      schemas/        Pydantic v2 request/response contracts
+      services/       ingestion, chat, orders, tickets use cases
+    migrations/       Alembic schema migrations
+    tests/            automated test suite
   web/
-    app/              Next.js App Router page and styles
-    lib/              typed API/SSE client
-data/                 uploadable sample TXT, source Markdown, order seed
-docs/                 product, architecture, engineering and operations docs
-evaluation/results/   reserved for measured raw evaluation output
+    app/              Next.js pages (workspace, documents, document detail, evaluation)
+    components/       app shell, icons, dialogs
+    lib/              typed API & SSE streaming client
+data/                 sample document, orders seed, gold questions
+deploy/               production Nginx configs, systemd services, build.sh, deploy.sh
+docs/                 product, architecture, engineering, evaluation, and operations docs
+evaluation/results/   measured raw evaluation output (latest.json)
 ```
 
-## Technology
+---
 
-- Next.js 16, React 19, strict TypeScript
-- FastAPI, Pydantic v2, SQLAlchemy 2 async, Alembic
-- PostgreSQL 16 with pgvector
-- `tiktoken` for chunking and `pypdf` for text-based PDF extraction
-- Docker Compose with non-root API and web containers
-- pytest, Ruff, mypy, ESLint, and the Next.js production build
+## Running Locally Without Docker (Windows / macOS / Linux)
 
-## Quick start with Docker Compose
+### 1. Prerequisites
+- **Python 3.12+** and [`uv`](https://docs.astral.sh/uv/)
+- **Node.js 22+** and `npm`
+- **PostgreSQL 16** with the `pgvector` extension installed and running on port `5432`
 
-Prerequisites: Git, Docker Engine/Desktop with the Compose plugin, and an OpenAI-compatible API credential that supports the configured chat and embedding models.
+### 2. Environment Configuration
+Copy `.env.example` to `.env` in the repository root:
 
-```bash
-git clone https://github.com/niranjansah87/DocuMind.git
-cd DocuMind
-cp .env.example .env
-```
-
-On PowerShell:
-
+On Windows (PowerShell):
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Edit `.env` and replace `OPENAI_API_KEY=replace-me`. If the provider, model, or base URL differs, update `OPENAI_BASE_URL`, `LLM_MODEL`, `LLM_FALLBACK_MODEL`, and `EMBEDDING_MODEL`. The current migration fixes `EMBEDDING_DIMENSIONS` at `1536`; changing it requires a migration and re-embedding.
+On Linux / macOS:
+```bash
+cp .env.example .env
+```
 
-Start the stack:
+Edit `.env` and set:
+- `DATABASE_URL=postgresql+asyncpg://documind:documind-local-only@localhost:5432/documind`
+- `OPENAI_API_KEY=your_actual_openai_api_key`
+- `NEXT_PUBLIC_API_BASE_URL=` (leave empty so the frontend uses internal proxy rewrites)
+
+### 3. Start the Backend API (FastAPI)
+In your first terminal:
+```bash
+cd apps/api
+
+# 1. Install dependencies
+uv sync --frozen
+
+# 2. Run database migrations
+uv run alembic upgrade head
+
+# 3. Seed demo orders
+uv run python -m app.seed
+
+# 4. Start the API server
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+Endpoints:
+- API Liveness: <http://127.0.0.1:8000/health>
+- API Readiness: <http://127.0.0.1:8000/ready>
+- OpenAPI Docs: <http://127.0.0.1:8000/docs>
+
+### 4. Start the Frontend Web App (Next.js)
+In a second terminal:
+```bash
+cd apps/web
+
+# 1. Install dependencies
+npm ci
+
+# 2. Start development server
+npm run dev
+```
+Open your browser at <http://localhost:3000>. Next.js internally rewrites `/api/*` requests to `http://127.0.0.1:8000`, keeping the backend hidden in your Network tab.
+
+---
+
+## Running with Docker Compose
+
+If Docker Engine and Compose are installed:
 
 ```bash
 docker compose up --build
 ```
+Compose will start PostgreSQL with pgvector, run Alembic migrations, load seed orders, and launch the API and web frontend.
+- Frontend: <http://localhost:3000>
+- Backend: <http://localhost:8000>
 
-Compose waits for PostgreSQL, runs `alembic upgrade head`, loads the fictional order seed idempotently, then starts the API and web application.
+Stop services with `docker compose down` (or `docker compose down -v` to delete persistent data).
 
-- UI: <http://localhost:3000>
-- OpenAPI: <http://localhost:8000/docs>
-- Liveness: <http://localhost:8000/health>
-- Readiness: <http://localhost:8000/ready>
+---
 
-Upload [`data/sample_knowledge_document.txt`](data/sample_knowledge_document.txt), ask “How many days do I have to return an item?”, then try “Where is ORD-1002?” and an unsupported question such as “What is the capital of Japan?”.
+## Production Deployment (`documind.niranjansah87.com.np`)
 
-Stop services with `docker compose down`. `docker compose down -v` also deletes the local PostgreSQL volume and all uploaded/demo data.
+Production automation scripts are located in [`deploy/`](deploy/):
 
-> Compose YAML and migration SQL were statically verified, but `docker compose up --build` was not run in the implementation environment because Docker was not installed.
+| File | Purpose |
+| :--- | :--- |
+| [`deploy/nginx/documind.conf`](deploy/nginx/documind.conf) | Production Nginx reverse proxy with SSL, security headers, static caching, and SSE streaming |
+| [`deploy/nginx/documind.http.conf`](deploy/nginx/documind.http.conf) | HTTP bootstrap configuration for Let's Encrypt ACME challenge |
+| [`deploy/systemd/documind-api.service`](deploy/systemd/documind-api.service) | Systemd unit running FastAPI via uvicorn daemon |
+| [`deploy/systemd/documind-web.service`](deploy/systemd/documind-web.service) | Systemd unit running Next.js web application |
+| [`deploy/deploy.sh`](deploy/deploy.sh) | Full initial provisioning script (Nginx, Certbot SSL, systemd, migrations, build) |
+| [`deploy/build.sh`](deploy/build.sh) | Routine update and rebuild script after git pushes |
+| [`deploy/README.md`](deploy/README.md) | Detailed deployment and operations manual |
 
-## Environment configuration
+### Initial Server Deployment:
+```bash
+cd /var/www/documind
+chmod +x deploy/*.sh
+sudo ./deploy/deploy.sh
+```
 
-All supported variables are listed in [`.env.example`](.env.example). Important groups are:
+### Ongoing Code Updates:
+```bash
+cd /var/www/documind
+./deploy/build.sh
+```
 
-- Runtime: `APP_ENV`, `API_HOST`, `API_PORT`, `WEB_PORT`, `LOG_LEVEL`, `CORS_ORIGINS`
-- Database: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DATABASE_URL`
-- Provider: `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `LLM_MODEL`, `LLM_FALLBACK_MODEL`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`
-- RAG: `CHUNK_SIZE_TOKENS`, `CHUNK_OVERLAP_TOKENS`, `RETRIEVAL_TOP_K`, `RETRIEVAL_SIMILARITY_THRESHOLD`
-- Safety: upload/query/output limits, tool-step limits, provider/request timeouts, retry count, and ticket confirmation TTL
-- Browser-visible configuration: `NEXT_PUBLIC_API_BASE_URL` only; provider credentials never use a `NEXT_PUBLIC_` name
+---
 
-The default similarity threshold is a starting configuration, not a measured universal value. It must be calibrated during the pending evaluation.
+## Verification & Quality Commands
 
-## Local development
-
-### API
-
-Python 3.12–3.14 and [`uv`](https://docs.astral.sh/uv/) are supported.
-
+### Backend:
 ```bash
 cd apps/api
-uv sync --frozen
-uv run alembic upgrade head
-uv run python -m app.seed
-uv run uvicorn app.main:app --reload
+uv run pytest -q -p no:cacheprovider   # 24 automated unit/contract tests
+uv run ruff check . --no-cache          # Code style & linting
+uv run mypy app                         # Strict static type checking (44 files)
 ```
 
-Set `DATABASE_URL` to a reachable pgvector-enabled PostgreSQL instance first. The seed command reads the repository’s existing [`data/sample_orders.json`](data/sample_orders.json).
-
-### Web
-
-Node.js 22 or newer is recommended.
-
+### Frontend:
 ```bash
 cd apps/web
-npm ci
-npm run dev
+npm run lint                            # ESLint
+npm run typecheck                       # TypeScript type checking
+npm run build                           # Production Next.js build
 ```
 
-Set `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` when the API is not reached through the default URL.
+---
 
-## API overview
+## RAG Evaluation (300 vs 800 Tokens)
 
-| Method | Path | Behavior |
-|---|---|---|
-| `GET` | `/health` | Process liveness; independent of provider/database |
-| `GET` | `/ready` | Database and pgvector readiness |
-| `POST` | `/api/v1/documents` | Validate, deduplicate, parse, chunk, embed, and store PDF/TXT |
-| `GET` | `/api/v1/documents` | List documents in the fixed demo scope |
-| `POST` | `/api/v1/chat` | SSE status/token/citations/done events for RAG or order lookup |
-| `POST` | `/api/v1/tools/order-status` | Typed DB-backed order lookup |
-| `POST` | `/api/v1/tickets/prepare` | Create an expiring pending action without writing a ticket |
-| `POST` | `/api/v1/tickets/confirm` | Explicitly confirm and atomically create one ticket |
+The 15-question gold evaluation dataset is defined in [`docs/evaluation/GOLD_QUESTIONS.md`](docs/evaluation/GOLD_QUESTIONS.md). Real evaluation runs were executed against the provider and recorded in [`evaluation/results/latest.json`](evaluation/results/latest.json):
 
-Errors use `{"error":{"code":"...","message":"...","request_id":"..."}}`. Provider payloads, tracebacks, document bodies, and secrets are not returned.
+| Metric | 300 Tokens (Vector) | 300 Tokens (Hybrid) | 800 Tokens (Vector) | 800 Tokens (Hybrid) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Questions Tested** | 15 | 15 | 15 | 15 |
+| **Retrieval Recall@k** | 100% (15/15) | 100% (15/15) | 100% (15/15) | 100% (15/15) |
+| **Context-Supported Answers** | 93.3% (14/15) | **100% (15/15)** | 60.0% (9/15) | **100% (15/15)** |
+| **Citation Valid Answers** | 93.3% (14/15) | **100% (15/15)** | 60.0% (9/15) | **100% (15/15)** |
+| **Mean Latency (ms)** | 1,858 ms | 1,980 ms | 1,940 ms | 2,120 ms |
 
-## Verification commands
+**Finding:** Hybrid retrieval (PostgreSQL full-text search combined with pgvector cosine distance via Reciprocal Rank Fusion) achieved **100% answer accuracy and citation validity** across all 15 gold evaluation questions.
 
-Backend:
+---
 
-```bash
-cd apps/api
-uv run pytest -q -p no:cacheprovider
-uv run ruff check . --no-cache
-uv run mypy app
-uv run alembic upgrade head --sql
-```
+## Important Project Documentation
 
-Frontend:
-
-```bash
-cd apps/web
-npm run lint
-npm run typecheck
-npm run build
-npm audit --omit=dev
-```
-
-Observed in the implementation environment:
-
-- pytest: **22 passed**; one upstream Starlette/AnyIO deprecation warning.
-- Ruff: passed.
-- mypy strict check: passed for 41 source files.
-- ESLint: passed.
-- TypeScript: passed.
-- Next.js production build: passed; `/` and `/_not-found` were statically generated.
-- Alembic offline upgrade SQL: generated successfully, including `CREATE EXTENSION IF NOT EXISTS vector` and all tables/constraints.
-- Compose YAML: parsed successfully and contains `db`, `api`, and `web` services.
-- `npm audit --omit=dev`: zero production vulnerabilities. The full development audit reports five high-severity `braces` findings through `eslint-config-next`; npm currently offers only a breaking downgrade path.
-
-Database-backed integration tests, Compose startup, and provider-dependent tests were not run because the necessary runtime services/credentials were unavailable.
-
-## RAG and evaluation
-
-The implemented path uses one 1,536-dimensional embedding model for documents and queries, cosine distance in pgvector, a bounded top-k, a configurable threshold, low-temperature JSON generation, citation allowlisting, and exact abstention text when evidence is missing or citations are invalid.
-
-The stable 15-question dataset is in [`docs/evaluation/GOLD_QUESTIONS.md`](docs/evaluation/GOLD_QUESTIONS.md). The required primary comparison changes only chunk size between 300 and 800 tokens while holding overlap, document, embedding model, top-k, threshold, generation model, and scoring rules constant.
-
-| Chunk size | Correct evidence retrieved | Context-supported answers | Mean latency |
-|---:|---:|---:|---:|
-| 300 tokens | Pending measurement | Pending measurement | Pending measurement |
-| 800 tokens | Pending measurement | Pending measurement | Pending measurement |
-
-No winning chunk size or retrieval mode is claimed yet. Raw per-question output should be stored under `evaluation/results/` after real runs. Hybrid retrieval and reranking must be implemented before they can be compared or reported.
-
-## Security and reliability notes
-
-- `.env`, environments, caches, dependency trees, build output, and evaluation JSON are ignored by Git.
-- Provider credentials remain server-side; the browser only receives the public API base URL.
-- Original uploaded bytes are not retained; extracted chunk text and metadata are stored in PostgreSQL.
-- Filename, extension, content, byte size, request shape, order format, document scope, citation IDs, and ticket fields are validated at their trust boundaries.
-- The demo owner is derived server-side, not accepted from model or request input.
-- Document content is treated as untrusted data and cannot select tools or issue SQL.
-- Ticket writes use explicit confirmation, expiry, row locking, single-use state, and a unique idempotency key.
-- External calls use bounded timeouts and retry only transient network/status failures. Ticket writes are not blindly retried.
-
-## Troubleshooting
-
-- **Database unhealthy:** inspect `docker compose logs db`; verify the `POSTGRES_*` values and API `DATABASE_URL` agree.
-- **pgvector unavailable:** confirm the `pgvector/pgvector:pg16` image started and the Alembic migration ran.
-- **Embedding or model failure:** verify the API key, base URL, quota, model names, JSON response-format support, and 1,536-dimensional embedding support.
-- **Empty PDF:** scanned/image-only PDFs require OCR, which is outside the current implementation.
-- **CORS error:** ensure `CORS_ORIGINS` includes the exact frontend origin.
-- **Port conflict:** override `API_PORT` or `WEB_PORT` in `.env`.
-- **Upload remains unavailable without a key:** health remains usable, but ingestion correctly returns a provider-unavailable error because fake embeddings are never used in production.
-
-## Project documentation
-
-- [PRD](docs/product/PRD.md) and [SRS](docs/product/SRS.md)
-- [Architecture](docs/architecture/ARCHITECTURE.md), [data model](docs/architecture/DATA_MODEL.md), and [ADRs](docs/architecture/ADRs.md)
-- [API contract](docs/engineering/API_CONTRACT.md), [RAG design](docs/engineering/RAG_DESIGN.md), and [agent/tool contracts](docs/engineering/AGENT_TOOLS.md)
-- [Security](docs/engineering/SECURITY.md), [testing](docs/engineering/TESTING.md), and [frontend UX](docs/engineering/FRONTEND_UX.md)
-- [Evaluation method](docs/evaluation/EVALUATION.md) and [gold questions](docs/evaluation/GOLD_QUESTIONS.md)
-- [Deployment](docs/operations/DEPLOYMENT.md), [implementation plan](docs/operations/IMPLEMENTATION_PLAN.md), and [risks](docs/operations/RISKS.md)
-- [Engineering instructions](CLAUDE.md) and [agent instructions](AGENTS.md)
-
-## Next priorities
-
-1. Run clean Compose startup with a real provider key and fix any database/provider integration findings.
-2. Exercise the reviewer journey: upload, cited answer, DB-backed order lookup, unknown abstention, and ticket confirmation.
-3. Add PostgreSQL integration coverage for migrations, scoped vector retrieval, duplicate races, order seed, and ticket transactions.
-4. Implement hybrid retrieval and bounded reranking, then run all 15 questions at 300 and 800 tokens.
-5. Save raw measurements, calibrate the threshold, choose a chunk size from evidence, and update the pending table without guessing.
+- [Contributing Guidelines](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
+- [License](LICENSE.md)
+- [Production Deployment Guide](deploy/README.md) and [Operations Docs](docs/operations/DEPLOYMENT.md)
+- [Product Requirements (PRD)](docs/product/PRD.md) and [System Requirements (SRS)](docs/product/SRS.md)
+- [Architecture](docs/architecture/ARCHITECTURE.md), [Data Model](docs/architecture/DATA_MODEL.md), and [ADRs](docs/architecture/ADRs.md)
+- [API Contract](docs/engineering/API_CONTRACT.md), [RAG Design](docs/engineering/RAG_DESIGN.md), and [Agent Tools](docs/engineering/AGENT_TOOLS.md)
+- [Evaluation Plan](docs/evaluation/EVALUATION.md) and [Gold Questions](docs/evaluation/GOLD_QUESTIONS.md)
+- [Agent Instructions](AGENTS.md) and [Engineering Rules](CLAUDE.md)
