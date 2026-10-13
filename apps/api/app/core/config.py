@@ -7,8 +7,11 @@ from typing import Annotated
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
-ROOT_DIR = Path(__file__).resolve().parents[4]
-APP_DIR = Path(__file__).resolve().parents[2]
+_file_parents = Path(__file__).resolve().parents
+# Inside Docker container /app/app/core/config.py, parents has length 4 (/app/app/core, /app/app, /app, /)
+# In host repo root /DocuMind/apps/api/app/core/config.py, parents[4] is repo root
+ROOT_DIR = _file_parents[4] if len(_file_parents) > 4 else (_file_parents[2] if len(_file_parents) > 2 else _file_parents[0])
+APP_DIR = _file_parents[2] if len(_file_parents) > 2 else ROOT_DIR
 
 _app_env = os.getenv("APP_ENV", "development").lower()
 _env_files: list[str] = [
