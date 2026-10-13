@@ -640,83 +640,61 @@ export default function WorkspacePage() {
             <div className="inspector-tab-content">
               {activeTab === "sources" && (
                 <div className="sources-list-wrap">
-                  {(allCitations.length > 0 ? allCitations : [
-                    {
-                      chunk_id: "src-1",
-                      document_id: activeDoc?.document_id ?? "1",
-                      document_name: activeDoc?.filename ?? "Customer Support Policy.pdf",
-                      chunk_index: 0,
-                      section: "Refund Policy",
-                      page_start: 4,
-                      page_end: 4,
-                      quote:
-                        "Refunds are generally processed within 5–7 business days after an approved return is received and inspected. The refund will be issued to the original payment method...",
-                    },
-                    {
-                      chunk_id: "src-2",
-                      document_id: activeDoc?.document_id ?? "1",
-                      document_name: activeDoc?.filename ?? "Customer Support Policy.pdf",
-                      chunk_index: 1,
-                      section: "Eligibility",
-                      page_start: 7,
-                      page_end: 7,
-                      quote:
-                        "To be eligible for a refund, the item must be returned within 30 days of delivery. The item must be in original condition with all packaging and accessories...",
-                    },
-                    {
-                      chunk_id: "src-3",
-                      document_id: activeDoc?.document_id ?? "1",
-                      document_name: activeDoc?.filename ?? "Customer Support Policy.pdf",
-                      chunk_index: 2,
-                      section: "Non-Refundable Items",
-                      page_start: 12,
-                      page_end: 12,
-                      quote:
-                        "Certain items such as digital products, gift cards, and perishable goods are not eligible for refunds. These items are clearly marked on the product page...",
-                    },
-                  ]).map((citation, idx) => {
-                    const isSelected = activeCitation?.chunk_id === citation.chunk_id;
-                    return (
-                      <div
-                        key={citation.chunk_id}
-                        className={`source-card-mock ${isSelected ? "selected" : ""}`}
-                        onClick={() => setActiveCitation(citation)}
-                      >
-                        <div className="source-card-header">
-                          <div className="source-card-title-group">
-                            <Icon name="file" size={15} className="text-blue-600" />
-                            <span className="source-title-text">Source {idx + 1}</span>
-                            <span className="source-page-badge">
-                              p. {citation.page_start ?? idx + 1}
-                            </span>
-                          </div>
-                          <Icon name="chevron-down" size={14} />
-                        </div>
-
-                        <div className="source-card-body-row">
-                          <div className="source-card-text-col">
-                            <h4 className="source-section-heading">
-                              {citation.section ?? `Section ${idx + 1}`}
-                            </h4>
-                            <p className="source-excerpt-paragraph">{citation.quote}</p>
+                  {allCitations.length > 0 ? (
+                    allCitations.map((citation, idx) => {
+                      const isSelected = activeCitation?.chunk_id === citation.chunk_id;
+                      return (
+                        <div
+                          key={citation.chunk_id}
+                          className={`source-card-mock ${isSelected ? "selected" : ""}`}
+                          onClick={() => setActiveCitation(citation)}
+                        >
+                          <div className="source-card-header">
+                            <div className="source-card-title-group">
+                              <Icon name="file" size={15} className="text-blue-600" />
+                              <span className="source-title-text">Source {idx + 1}</span>
+                              <span className="source-page-badge">
+                                p. {citation.page_start ?? idx + 1}
+                              </span>
+                            </div>
+                            <Icon name="chevron-down" size={14} />
                           </div>
 
-                          {/* Miniature Document Page Thumbnail */}
-                          <div className="source-page-thumbnail">
-                            <div className="thumbnail-paper">
-                              <div className="thumb-line header-line" />
-                              <div className="thumb-line full-line" />
-                              <div className="thumb-line highlight-line" />
-                              <div className="thumb-line highlight-line" />
-                              <div className="thumb-line partial-line" />
-                              <div className="thumb-line full-line" />
-                              <div className="thumb-line full-line" />
+                          <div className="source-card-body-row">
+                            <div className="source-card-text-col">
+                              <h4 className="source-section-heading">
+                                {citation.section ?? `Section ${idx + 1}`}
+                              </h4>
+                              <p className="source-excerpt-paragraph">{citation.quote}</p>
+                            </div>
+
+                            {/* Miniature Document Page Thumbnail */}
+                            <div className="source-page-thumbnail">
+                              <div className="thumbnail-paper">
+                                <div className="thumb-line header-line" />
+                                <div className="thumb-line full-line" />
+                                <div className="thumb-line highlight-line" />
+                                <div className="thumb-line highlight-line" />
+                                <div className="thumb-line partial-line" />
+                                <div className="thumb-line full-line" />
+                                <div className="thumb-line full-line" />
+                              </div>
                             </div>
                           </div>
                         </div>
+                      );
+                    })
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-3">
+                        <Icon name="search" size={18} className="text-slate-500" />
                       </div>
-                    );
-                  })}
+                      <p className="text-sm font-medium text-white/70">No sources retrieved yet</p>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                        Ask a question and DocuMind will surface cited excerpts from your indexed documents here.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -724,7 +702,7 @@ export default function WorkspacePage() {
                 <div className="inspector-details-tab">
                   <div className="info-group">
                     <span className="info-label">File name</span>
-                    <span className="info-value">{activeDoc?.filename ?? "Customer Support Policy.pdf"}</span>
+                    <span className="info-value">{activeDoc?.filename ?? "—"}</span>
                   </div>
                   <div className="info-group">
                     <span className="info-label">File type</span>
@@ -733,7 +711,7 @@ export default function WorkspacePage() {
                   <div className="info-group">
                     <span className="info-label">File size</span>
                     <span className="info-value">
-                      {activeDoc ? `${(activeDoc.byte_size / (1024 * 1024)).toFixed(1)} MB` : "2.4 MB"}
+                      {activeDoc ? `${(activeDoc.byte_size / (1024 * 1024)).toFixed(1)} MB` : "—"}
                     </span>
                   </div>
                   <div className="info-group">
@@ -762,17 +740,29 @@ export default function WorkspacePage() {
               {activeTab === "related" && (
                 <div className="inspector-related-tab">
                   <h4>Related Knowledge</h4>
-                  <ul className="related-items-list">
-                    <li>
-                      <Link href="/documents">Product Warranty Terms.pdf</Link>
-                    </li>
-                    <li>
-                      <Link href="/documents">Terms of Service.txt</Link>
-                    </li>
-                    <li>
-                      <Link href="/documents">Return and Refund Policy.pdf</Link>
-                    </li>
-                  </ul>
+                  {documents.filter((d) => d.status === "ready" && d.document_id !== activeDocId).length > 0 ? (
+                    <ul className="related-items-list">
+                      {documents
+                        .filter((d) => d.status === "ready" && d.document_id !== activeDocId)
+                        .slice(0, 5)
+                        .map((doc) => (
+                          <li key={doc.document_id}>
+                            <Link
+                              href={`/?document=${doc.document_id}`}
+                              onClick={() => setActiveDocId(doc.document_id)}
+                            >
+                              {doc.filename}
+                            </Link>
+                          </li>
+                        ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-slate-400 mt-2">
+                      {documents.length === 0
+                        ? "Upload documents to see related knowledge here."
+                        : "No other ready documents in workspace."}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

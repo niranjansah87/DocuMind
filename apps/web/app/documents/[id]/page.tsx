@@ -12,6 +12,7 @@ export default function DocumentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [document, setDocument] = useState<DocumentDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"preview" | "extracted" | "chunks">("preview");
   const [activeInspectorTab, setActiveInspectorTab] = useState<"details" | "chunks" | "related">("details");
   const [currentPage, setCurrentPage] = useState(1);
@@ -27,41 +28,9 @@ export default function DocumentDetailPage() {
         setDocument(doc);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
         if (!isMounted) return;
-        // If not found in DB (e.g. mockup id), provide fallback high-fidelity mock data matching mockup 3
-        setDocument({
-          document_id: id,
-          filename: "Customer Support Policy.pdf",
-          mime_type: "application/pdf",
-          byte_size: 2.4 * 1024 * 1024,
-          status: "ready",
-          page_count: 12,
-          created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          chunk_count: 24,
-          chunk_size_tokens: 300,
-          overlap_tokens: 50,
-          chunks: [
-            {
-              chunk_id: "c-1",
-              chunk_index: 0,
-              text: "This Customer Support Policy explains how we handle customer requests, including returns, refunds, order support, and general inquiries.",
-              token_count: 28,
-              section: "1. Introduction",
-              page_start: 1,
-              page_end: 1,
-            },
-            {
-              chunk_id: "c-2",
-              chunk_index: 1,
-              text: "Refunds are generally processed within 5–7 business days after an approved return is received and inspected. The refund will be issued to the original payment method used at the time of purchase.",
-              token_count: 42,
-              section: "2. Refund Policy",
-              page_start: 1,
-              page_end: 1,
-            },
-          ],
-        });
+        setError(err instanceof Error ? err.message : "Document not found.");
         setLoading(false);
       });
     return () => {
@@ -99,22 +68,45 @@ export default function DocumentDetailPage() {
     );
   }
 
-  const docName = document?.filename ?? "Customer Support Policy.pdf";
+  if (error || !document) {
+    return (
+      <main className="document-detail-page flex flex-col items-center justify-center p-8 min-h-[500px]">
+        <div className="max-w-md w-full text-center space-y-4 p-8 rounded-2xl bg-[#0D121F] border border-white/10 shadow-2xl">
+          <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mx-auto">
+            <Icon name="alert-circle" size={24} />
+          </div>
+          <h2 className="text-lg font-semibold text-white">Document Not Found</h2>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            {error || "The requested document could not be found or is not available in this workspace."}
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/documents"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-all"
+            >
+              <Icon name="chevron-left" size={14} />
+              <span>Back to Documents</span>
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const docName = document.filename;
   const isPdf = docName.toLowerCase().endsWith(".pdf");
-  const fileSizeMb = document ? (document.byte_size / (1024 * 1024)).toFixed(1) : "2.4";
-  const chunkCount = document?.chunk_count ?? (document?.chunks ? document.chunks.length : 24);
-  const totalTokens = document?.chunks
+  const fileSizeMb = (document.byte_size / (1024 * 1024)).toFixed(1);
+  const chunkCount = document.chunk_count ?? (document.chunks ? document.chunks.length : 0);
+  const totalTokens = document.chunks
     ? document.chunks.reduce((sum, c) => sum + (c.token_count || 0), 0)
-    : 5842;
-  const uploadDateStr = document?.created_at
-    ? new Date(document.created_at).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "Recently uploaded";
+    : 0;
+  const uploadDateStr = new Date(document.created_at).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
     <motion.main

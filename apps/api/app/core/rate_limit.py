@@ -126,8 +126,7 @@ def get_client_identifier(request: Request, settings: Settings | None = None) ->
 def enforce_rate_limit(
     request: Request, limit: int, settings: Settings, window_seconds: int = 60
 ) -> RateLimitResult:
-    """Evaluate and enforce rate limit for the current request."""
-    client_id = get_client_identifier(request, settings)
+    """Evaluate and enforce rate limit for the current request.
 
     Raises AppError(429) if exceeded.
     """
@@ -136,7 +135,8 @@ def enforce_rate_limit(
             allowed=True, limit=limit, remaining=limit, reset_after_seconds=window_seconds
         )
 
-    key = f"{get_client_identifier(request)}:{request.url.path}"
+    client_id = get_client_identifier(request, settings)
+    key = f"{client_id}:{request.url.path}"
     result = SlidingWindowRateLimiter.check_rate_limit(key, limit, window_seconds)
 
     if not result.allowed:

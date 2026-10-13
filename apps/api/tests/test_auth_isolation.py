@@ -65,16 +65,17 @@ def test_auth_required_accepts_valid_bearer_token() -> None:
 
 
 def test_auth_required_accepts_valid_api_key_header() -> None:
-    tenant_id = uuid.uuid4()
+    # With a single shared api_key, the only authorized tenant is default_tenant_id.
+    # Providing a matching X-Owner-Id (DEMO_OWNER_ID) succeeds.
     request = make_request(
         {
             "X-API-Key": "secret-prod-token",
-            "X-Owner-Id": str(tenant_id),
+            "X-Owner-Id": str(DEMO_OWNER_ID),
         }
     )
     settings = Settings(auth_required=True, api_key="secret-prod-token")
     resolved_id = get_owner_id(request, settings)
-    assert resolved_id == tenant_id
+    assert resolved_id == DEMO_OWNER_ID
 
 
 def test_auth_verify_endpoint_default() -> None:
