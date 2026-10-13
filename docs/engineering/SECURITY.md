@@ -93,17 +93,20 @@ clearly state any demo-only shortcuts.
 -   Treat LLM-generated tool arguments and citations as untrusted until
     validated.
 
-## 6. Authentication and Multi-Tenant Isolation (Implemented)
+## 6. Authentication and Multi-Tenant Isolation (Implemented & Hardened)
 
 DocuMind supports dual-mode operation for local evaluation and production deployment:
 - **Dedicated Frontend Auth Page (`/login`):** An intuitive credentials manager allowing operators and reviewers to input an API Key / Bearer token, switch tenant scopes (`X-Owner-Id`), verify credentials via `GET /api/v1/auth/verify`, and seamlessly switch back to Reviewer Demo Mode with a single click. The client automatically attaches `Authorization: Bearer <token>` and `X-Owner-Id: <tenant>` across all fetch and SSE requests via `apps/web/lib/auth.ts`.
-- **Local / Reviewer Mode (`AUTH_REQUIRED=false`):** Defaults to `DEMO_OWNER_ID` (`00000000-0000-0000-0000-000000000001`), allowing clean-machine testing without pre-configured tokens. Honors `X-Owner-Id` or `X-User-Id` request headers for isolated multi-tenant testing.
-- **Production Mode (`AUTH_REQUIRED=true`):** Enforces bearer token (`Authorization: Bearer <token>`) or API key (`X-API-Key: <key>`) authentication. Unauthenticated requests are rejected with `401 UNAUTHORIZED`; invalid credentials yield `403 FORBIDDEN`.
+- **Credential-Bound Tenant Identity:** Tenant identity is strictly derived from the verified credential (`TENANT_API_KEYS` dictionary or `DEFAULT_TENANT_ID`). Any attempt by an authenticated client to pass a mismatched `X-Owner-Id` or `X-User-Id` is rejected with `403 FORBIDDEN` to prevent tenant impersonation.
+- **Production Startup Validation:** When `APP_ENV=production`, `AUTH_REQUIRED` is forced to `true`, and startup aborts immediately if credentials or database passwords use insecure default placeholders.
+- **Local / Reviewer Mode (`AUTH_REQUIRED=false`):** Defaults to `DEMO_OWNER_ID` (`00000000-0000-0000-0000-000000000001`), allowing clean-machine testing without pre-configured tokens. Honors `X-Owner-Id` or `X-User-Id` request headers for isolated multi-tenant testing in development.
 - **Database & Vector Isolation:** All document chunks, embeddings, order records, and tickets are strictly filtered by `owner_id` at the SQL query layer before context reaches the LLM.
 
-## 7. Rate Limiting & Resource Exhaustion Defense (Implemented)
+## 7. Rate Limiting & Request Trust (Implemented & Hardened)
 
 - **Sliding-Window Rate Limiter:** An in-memory sliding window limiter (`SlidingWindowRateLimiter`) throttles requests per client IP or authenticated token.
+- **Proxy Trust Verification:** Guards against `X-Forwarded-For` header spoofing by only inspecting forward headers when the immediate socket peer is an explicitly configured trusted proxy (`trusted_proxies` setting).
+- **Memory Bounds & DoS Defense:** Capped at `MAX_TRACKED_CLIENTS = 10,000` with automated sliding-window pruning and LRU eviction under high-cardinality spoofing attempts.
 - **Per-Route Quotas:**
   - Document Uploads: 15 / minute
   - Chat & LLM Queries: 60 / minute
@@ -111,9 +114,10 @@ DocuMind supports dual-mode operation for local evaluation and production deploy
   - General API: 120 / minute
 - **Response Headers:** `429 Too Many Requests` returns `Retry-After: 60`, `X-RateLimit-Limit`, and `X-RateLimit-Remaining`.
 
-## 8. HTTP Defensive Security Headers (Implemented)
+## 8. HTTP Defensive Security & Cache Headers (Implemented)
 
 FastAPI and Next.js enforce standard browser defenses:
+- `Cache-Control: no-store, no-cache, must-revalidate, private` on all `/api/v1/*` routes to prevent shared intermediate caches from storing private tenant documents, citations, or answers.
 - `X-Content-Type-Options: nosniff` (prevents MIME confusion attacks)
 - `X-Frame-Options: DENY` (clickjacking protection)
 - `Referrer-Policy: strict-origin-when-cross-origin`
