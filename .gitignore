@@ -1,3 +1,16 @@
 /.agents
 /.claude
 /.codex
+.env
+.venv/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/node_modules/
+**/.next/
+**/coverage/
+evaluation/results/*.json
+!.gitkeep
+prompt.txt
