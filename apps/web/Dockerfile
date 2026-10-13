@@ -2,7 +2,7 @@ FROM node:22-alpine AS deps
 WORKDIR /repo/apps/web
 RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY apps/web/package.json apps/web/pnpm-lock.yaml* ./
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --no-frozen-lockfile --config.minimum-release-age=0
 
 FROM node:22-alpine AS builder
 WORKDIR /repo/apps/web
