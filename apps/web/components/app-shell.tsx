@@ -26,19 +26,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [activeRecent, setActiveRecent] = useState<string>("refund-policy");
-  const [tenantLabel, setTenantLabel] = useState<string>("Reviewer Scope");
-
-  useEffect(() => {
+  const [tenantLabel, setTenantLabel] = useState<string>(() => {
+    if (typeof window === "undefined") return "Reviewer Scope";
     const tid = getTenantId();
     const token = getAuthToken();
     if (tid && tid !== "00000000-0000-0000-0000-000000000001") {
-      setTenantLabel(`Tenant ${tid.slice(0, 8)}`);
-    } else if (token) {
-      setTenantLabel("API Key Auth");
-    } else {
-      setTenantLabel("Reviewer Scope");
+      return `Tenant ${tid.slice(0, 8)}`;
     }
-  }, [pathname]);
+    if (token) return "API Key Auth";
+    return "Reviewer Scope";
+  });
+
+  useEffect(() => {
+    const updateLabel = () => {
+      const tid = getTenantId();
+      const token = getAuthToken();
+      let next = "Reviewer Scope";
+      if (tid && tid !== "00000000-0000-0000-0000-000000000001") {
+        next = `Tenant ${tid.slice(0, 8)}`;
+      } else if (token) {
+        next = "API Key Auth";
+      }
+      setTenantLabel((prev) => (prev !== next ? next : prev));
+    };
+
+    window.addEventListener("storage", updateLabel);
+    return () => window.removeEventListener("storage", updateLabel);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

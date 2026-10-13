@@ -20,21 +20,22 @@ export default function LoginPage() {
   const [showToken, setShowToken] = useState(false);
   const [authRequired, setAuthRequired] = useState<boolean | null>(null);
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
-  const [activeSession, setActiveSession] = useState<{ token: string | null; tenantId: string | null }>({
-    token: null,
-    tenantId: null,
+  const [activeSession, setActiveSession] = useState<{ token: string | null; tenantId: string | null }>(() => {
+    if (typeof window === "undefined") return { token: null, tenantId: null };
+    return { token: getAuthToken(), tenantId: getTenantId() };
   });
-  const [tab, setTab] = useState<"demo" | "custom">("demo");
+  const [tab, setTab] = useState<"demo" | "custom">(() => {
+    if (typeof window === "undefined") return "demo";
+    const currentToken = getAuthToken();
+    const currentTenant = getTenantId();
+    if (currentToken || (currentTenant && currentTenant !== DEFAULT_DEMO_TENANT)) {
+      return "custom";
+    }
+    return "demo";
+  });
 
   useEffect(() => {
     let isMounted = true;
-    const currentToken = getAuthToken();
-    const currentTenant = getTenantId();
-    setActiveSession({ token: currentToken, tenantId: currentTenant });
-
-    if (currentToken || (currentTenant && currentTenant !== DEFAULT_DEMO_TENANT)) {
-      setTab("custom");
-    }
 
     void (async () => {
       try {

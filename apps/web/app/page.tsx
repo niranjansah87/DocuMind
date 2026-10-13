@@ -293,14 +293,7 @@ export default function WorkspacePage() {
                   <span>
                     {activeDoc.page_count != null ? `${activeDoc.page_count * 2} chunks` : "—"} •{" "}
                     {(activeDoc.byte_size / (1024 * 1024)).toFixed(1)} MB •{" "}
-                    Uploaded {(() => {
-                      const diffMs = Date.now() - new Date(activeDoc.created_at).getTime();
-                      const mins = Math.floor(diffMs / 60000);
-                      if (mins < 60) return `${Math.max(1, mins)}m ago`;
-                      const hrs = Math.floor(mins / 60);
-                      if (hrs < 24) return `${hrs}h ago`;
-                      return `${Math.floor(hrs / 24)}d ago`;
-                    })()}
+                    Uploaded {new Date(activeDoc.created_at).toLocaleDateString()}
                   </span>
                 </div>
               </>

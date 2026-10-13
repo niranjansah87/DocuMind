@@ -11,40 +11,23 @@ DocuMind stores both relational data (documents, chunks, orders, tickets) and hi
 
 ## 2. Backup Procedures
 
-### 2.1 Automated Full Logical Dump (`pg_dump`)
-We use PostgreSQL's custom archive format (`-Fc`), which includes schema definitions, table data, and pgvector embeddings in a compressed, multi-threaded restorable archive:
+### 2.1 Automated Full Logical Dump (`scripts/backup.sh`)
+DocuMind provides an executable backup tool in `scripts/backup.sh` that generates PostgreSQL's custom archive format (`-Fc`) including schema definitions, table data, and pgvector embeddings in a compressed archive with SHA-256 verification and automatic 14-day retention pruning:
 
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-BACKUP_DIR="/var/backups/documind"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="${BACKUP_DIR}/documind_backup_${TIMESTAMP}.dump"
-
-mkdir -p "${BACKUP_DIR}"
-
-echo "Starting DocuMind database backup to ${BACKUP_FILE}..."
-
-# Execute pg_dump with custom compressed format
-docker compose exec -T db pg_dump \
-  -U "${POSTGRES_USER:-documind}" \
-  -d "${POSTGRES_DB:-documind}" \
-  -Fc \
-  --blobs \
-  --verbose > "${BACKUP_FILE}"
-
-echo "Backup complete: $(ls -lh "${BACKUP_FILE}")"
-
-# Retain last 14 daily backups, prune older
-find "${BACKUP_DIR}" -type f -name "documind_backup_*.dump" -mtime +14 -delete
+# Run standalone backup script
+./scripts/backup.sh
 ```
 
-### 2.2 Verifying Backup Integrity
-Test that a backup file is structurally valid without restoring into the live database:
-```bash
-docker compose exec -T db pg_restore --list < "${BACKUP_FILE}" | head -n 20
-```
+The script performs:
+1. Container liveness verification.
+2. `pg_dump` execution with `--blobs -Fc` format preserving vector tables.
+3. Integrity validation using `pg_restore --list`.
+4. SHA-256 checksum generation (`.sha256`).
+5. Pruning of dumps older than 14 days.
+
+> [!NOTE]
+> Operational boundary: While `scripts/backup.sh` is fully executable and verified, production automated cron execution or offsite S3 object-lock replication is an infrastructure-layer orchestration task requiring host-level crontab or cloud scheduler configuration.
 
 ---
 
@@ -53,7 +36,13 @@ docker compose exec -T db pg_restore --list < "${BACKUP_FILE}" | head -n 20
 > [!CAUTION]
 > Never restore directly into a live production database while traffic is active. Always restore into an isolated staging database or temporary container first to verify data integrity.
 
-### 3.1 Restoring to a Fresh Database
+### 3.1 Restoring via Script (`scripts/restore.sh`)
+Execute the restore script against a designated backup file and target database:
+```bash
+./scripts/restore.sh ./backups/documind_backup_YYYYMMDD_HHMMSS.dump documind_restored
+```
+
+### 3.2 Manual Recovery Procedure
 1. Stop API application traffic:
    ```bash
    docker compose stop api web

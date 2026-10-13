@@ -75,10 +75,7 @@ export default function DocumentsPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedDocId) {
-      setSelectedDocDetail(null);
-      return;
-    }
+    if (!selectedDocId) return;
     let isMounted = true;
     getDocument(selectedDocId)
       .then((detail) => {
