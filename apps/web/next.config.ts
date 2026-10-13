@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(process.cwd(), "../.."),
   turbopack: { root: path.join(process.cwd(), "../..") },
   async rewrites() {
-    const backendUrl = process.env.INTERNAL_API_URL || "http://127.0.0.1:8000";
+    const backendUrl = process.env.INTERNAL_API_URL || "http://127.0.0.1:8888";
     return [
       {
         source: "/api/:path*",

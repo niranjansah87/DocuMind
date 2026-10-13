@@ -45,12 +45,12 @@ cd apps/api
 uv sync --frozen
 uv run alembic upgrade head
 uv run python -m app.seed
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8888 --reload
 ```
 API endpoints will be live at:
-* Liveness: `http://127.0.0.1:8000/health`
-* Readiness: `http://127.0.0.1:8000/ready`
-* OpenAPI Docs: `http://127.0.0.1:8000/docs`
+* Liveness: `http://127.0.0.1:8888/health`
+* Readiness: `http://127.0.0.1:8888/ready`
+* OpenAPI Docs: `http://127.0.0.1:8888/docs`
 
 ### 2.5 Running the Frontend Web Application
 In a separate terminal:
@@ -59,8 +59,8 @@ cd apps/web
 npm ci
 npm run dev
 ```
-The application will be accessible at `http://localhost:3000`.
-Internal rewrites in Next.js automatically forward `/api/*`, `/health`, and `/ready` to `http://127.0.0.1:8000`.
+The application will be accessible at `http://localhost:7777`.
+Internal rewrites in Next.js automatically forward `/api/*`, `/health`, and `/ready` to `http://127.0.0.1:8888`.
 
 ---
 
@@ -87,9 +87,9 @@ Prerequisites: Docker Engine/Desktop with Compose plugin.
 ### 4.1 Architecture
 * **Domain:** `documind.niranjansah87.com.np`
 * **Nginx Reverse Proxy:** Routes all public HTTPS traffic.
-* **Next.js Frontend:** Runs on `127.0.0.1:3000` via `documind-web.service`.
-* **FastAPI Backend:** Runs on `127.0.0.1:8000` via `documind-api.service`.
-* **Hidden Backend:** No public backend domain or open port 8000 exists. All API requests are proxied internally via `https://documind.niranjansah87.com.np/api/v1/...`.
+* **Next.js Frontend:** Runs on `127.0.0.1:7777` via `documind-web.service`.
+* **FastAPI Backend:** Runs on `127.0.0.1:8888` via `documind-api.service`.
+* **Hidden Backend:** No public backend domain or open port 8888 exists. All API requests are proxied internally via `https://documind.niranjansah87.com.np/api/v1/...`.
 
 ### 4.2 Initial Setup
 Execute the provisioning script:
@@ -121,7 +121,7 @@ For ongoing updates after code pushes:
 
 ## 6. Troubleshooting
 
-* **Backend port conflict:** If port 8000 is occupied, adjust `API_PORT` in `.env` and `documind.conf`.
+* **Backend port conflict:** If port 8888 is occupied, adjust `API_PORT` in `.env` and `documind.conf`.
 * **pgvector extension error:** Run `CREATE EXTENSION IF NOT EXISTS vector;` manually in PostgreSQL using superuser privileges.
 * **SSE streaming delays:** Confirm `proxy_buffering off;` and `chunked_transfer_encoding on;` are present in Nginx for `location /api/`.
 * **CORS error:** Ensure `CORS_ORIGINS` in `.env` includes `https://documind.niranjansah87.com.np`.

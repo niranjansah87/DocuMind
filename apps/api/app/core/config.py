@@ -10,16 +10,20 @@ ROOT_ENV = Path(__file__).resolve().parents[4] / ".env"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(ROOT_ENV, ".env"), extra="ignore", case_sensitive=False
+        env_file=(ROOT_ENV, ".env.production", ".env"), extra="ignore", case_sensitive=False
     )
 
     app_env: str = "development"
     api_host: str = "0.0.0.0"
-    api_port: int = 8000
+    api_port: int = 8888
     database_url: str = (
         "postgresql+asyncpg://documind:documind-local-only@localhost:5432/documind"
     )
-    cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
+    cors_origins: Annotated[list[str], NoDecode] = [
+        "http://localhost:7777",
+        "http://127.0.0.1:7777",
+        "https://documind.niranjansah87.com.np",
+    ]
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
     llm_model: str = "gpt-4.1-mini"

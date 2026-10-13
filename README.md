@@ -18,7 +18,7 @@ DocuMind is an end-to-end, document-grounded question-and-answer assistant built
   - `create_ticket`: Controlled write action protected by an expiring (10m TTL), single-use confirmation token with idempotency keys.
 - **Real SSE Streaming:** Real token-by-token streaming events (`status`, `token`, `citations`, `done`, `error`) via Server-Sent Events.
 - **Responsive Frontend:** Next.js 16 App Router UI with upload state, document viewer, chat streaming, citation inspection, order lookup, and evaluation dashboard.
-- **Single-Domain Reverse Proxy & Hidden Backend:** All public traffic routes through `https://documind.niranjansah87.com.np`. The FastAPI backend (`127.0.0.1:8000`) is internal only, completely hidden from the browser's Network tab.
+- **Single-Domain Reverse Proxy & Hidden Backend:** All public traffic routes through `https://documind.niranjansah87.com.np`. The FastAPI backend (`127.0.0.1:8888`) is internal only, completely hidden from the browser's Network tab.
 
 ---
 
@@ -29,17 +29,17 @@ Browser Client
      │ (HTTPS on documind.niranjansah87.com.np)
      ▼
 Nginx Reverse Proxy
-     ├── /                    ──► Next.js Frontend (127.0.0.1:3000)
+     ├── /                    ──► Next.js Frontend (127.0.0.1:7777)
      ├── /_next/static/       ──► Next.js Static Cache
-     ├── /api/*               ──► FastAPI Backend (127.0.0.1:8000) [Buffering OFF for SSE]
+     ├── /api/*               ──► FastAPI Backend (127.0.0.1:8888) [Buffering OFF for SSE]
      └── /health, /ready      ──► FastAPI Health Endpoints
                                         │
                                         ▼
-                              PostgreSQL 16 + pgvector
+                               PostgreSQL 16 + pgvector
 ```
 
 ### Invariants:
-1. **Hidden Backend:** The browser only talks to `https://documind.niranjansah87.com.np`. In the Network tab, all calls are same-origin `/api/v1/...`. Port 8000 is internal only.
+1. **Hidden Backend:** The browser only talks to `https://documind.niranjansah87.com.np`. In the Network tab, all calls are same-origin `/api/v1/...`. Port 8888 is internal only.
 2. **SSE Streaming:** Nginx has `proxy_buffering off;` and `chunked_transfer_encoding on;` for `/api/`, preventing streaming buffering delays.
 3. **Untrusted Documents:** Uploaded text is treated as untrusted data enclosed in `<untrusted_context>` tags.
 4. **Verifiable Citations:** Citation IDs are validated against retrieved database records before output serialization.
@@ -115,12 +115,12 @@ uv run alembic upgrade head
 uv run python -m app.seed
 
 # 4. Start the API server
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8888 --reload
 ```
 Endpoints:
-- API Liveness: <http://127.0.0.1:8000/health>
-- API Readiness: <http://127.0.0.1:8000/ready>
-- OpenAPI Docs: <http://127.0.0.1:8000/docs>
+- API Liveness: <http://127.0.0.1:8888/health>
+- API Readiness: <http://127.0.0.1:8888/ready>
+- OpenAPI Docs: <http://127.0.0.1:8888/docs>
 
 ### 4. Start the Frontend Web App (Next.js)
 In a second terminal:
@@ -133,7 +133,7 @@ npm ci
 # 2. Start development server
 npm run dev
 ```
-Open your browser at <http://localhost:3000>. Next.js internally rewrites `/api/*` requests to `http://127.0.0.1:8000`, keeping the backend hidden in your Network tab.
+Open your browser at <http://localhost:7777>. Next.js internally rewrites `/api/*` requests to `http://127.0.0.1:8888`, keeping the backend hidden in your Network tab.
 
 ---
 
@@ -145,8 +145,8 @@ If Docker Engine and Compose are installed:
 docker compose up --build
 ```
 Compose will start PostgreSQL with pgvector, run Alembic migrations, load seed orders, and launch the API and web frontend.
-- Frontend: <http://localhost:3000>
-- Backend: <http://localhost:8000>
+- Frontend: <http://localhost:7777>
+- Backend: <http://localhost:8888>
 
 Stop services with `docker compose down` (or `docker compose down -v` to delete persistent data).
 

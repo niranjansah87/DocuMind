@@ -99,8 +99,8 @@ fi
 # 5. Local health verification
 info "Verifying service health"
 sleep 2
-curl -fsS http://127.0.0.1:8000/health >/dev/null || die "API /health failed"
-curl -fsS http://127.0.0.1:8000/ready >/dev/null || die "API /ready failed"
-curl -fsS http://127.0.0.1:3000/ >/dev/null || die "Web frontend http://127.0.0.1:3000 failed"
+curl -fsS http://127.0.0.1:8888/health >/dev/null || die "API /health failed"
+curl -fsS http://127.0.0.1:8888/ready >/dev/null || die "API /ready failed"
+curl -fsS http://127.0.0.1:7777/ >/dev/null || die "Web frontend http://127.0.0.1:7777 failed"
 
 ok "Update complete! DocuMind services restarted successfully ($SERVICES)"

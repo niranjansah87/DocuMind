@@ -4,8 +4,8 @@
 #
 # Target Domain: documind.niranjansah87.com.np
 # Architecture: Single domain reverse proxy (Nginx)
-#   - Frontend (Next.js):     http://127.0.0.1:3000
-#   - Backend API (FastAPI):  http://127.0.0.1:8000 (hidden, no public backend domain)
+#   - Frontend (Next.js):     http://127.0.0.1:7777
+#   - Backend API (FastAPI):  http://127.0.0.1:8888 (hidden, no public backend domain)
 #
 # Usage:
 #   sudo ./deploy/deploy.sh
@@ -146,7 +146,7 @@ info "Verifying services status"
 sleep 3
 
 for ((i=1; i<=15; i++)); do
-  if curl -fsS http://127.0.0.1:8000/health >/dev/null 2>&1 && curl -fsS http://127.0.0.1:3000/ >/dev/null 2>&1; then
+  if curl -fsS http://127.0.0.1:8888/health >/dev/null 2>&1 && curl -fsS http://127.0.0.1:7777/ >/dev/null 2>&1; then
     ok "Local services are healthy"
     break
   fi

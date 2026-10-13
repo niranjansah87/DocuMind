@@ -1,194 +1,334 @@
-# API Contract (Proposed)
+# API Contract (Implemented and Verified)
 
-Base path: `/api/v1`. This is a proposed contract to implement; adjust
-only deliberately and keep frontend, tests and README in sync.
+Base path: `/api/v1` (with top-level `/health` and `/ready` probes).
+All endpoints adhere to typed Pydantic schemas, strict authorization scoping, and structured error responses.
 
-## 1. Health
+---
+
+## 1. System Health & Probes
 
 ### `GET /health`
-
 Returns process liveness.
 
-``` json
-{"status":"ok"}
+```json
+{
+  "status": "ok"
+}
 ```
 
 ### `GET /ready`
+Checks PostgreSQL connectivity and `vector` extension readiness.
 
-Checks database connectivity and required extensions/configuration.
-
-``` json
-{"status":"ready","dependencies":{"database":"ok"}}
-```
-
-Return 503 if not ready.
-
-## 2. Upload document
-
-### `POST /documents`
-
-Content type: `multipart/form-data`, field `file`. Accepted: PDF and
-TXT; maximum size configured by `MAX_UPLOAD_BYTES`. Success `201`:
-
-``` json
+```json
 {
-  "document_id": "uuid",
-  "filename": "sample_guide.pdf",
+  "status": "ready",
+  "dependencies": {
+    "database": "ok"
+  }
+}
+```
+*Returns `503 Service Unavailable` if database connection or vector extension is unavailable.*
+
+---
+
+## 2. Documents API
+
+### `POST /api/v1/documents`
+Uploads and indexes a document.
+- **Content type:** `multipart/form-data`, field `file`.
+- **Accepted formats:** PDF (`application/pdf`) and TXT (`text/plain`).
+- **Maximum size:** Configurable via `MAX_UPLOAD_BYTES` (default 10 MB).
+- **Deduplication:** Computes SHA-256 byte hash. Identical uploads in scope reuse existing records.
+
+**Success (Fresh Ingestion - 201 Created):**
+```json
+{
+  "document_id": "8b2be449-2a62-45e3-8f37-fa286333dbde",
+  "filename": "Customer Support Policy.pdf",
   "status": "ready",
   "duplicate": false,
-  "chunk_count": 12
+  "chunk_count": 24
 }
 ```
 
-A duplicate may return `200` with the existing document ID and
-`duplicate: true`; document the chosen behavior and test it
-consistently.
-
-Errors: `413` too large, `415` unsupported type, `422` empty/unparseable
-content, `503` embedding/provider unavailable, `500` only for unexpected
-internal failures with generic user-facing text and request ID.
-
-## 3. List documents
-
-### `GET /documents`
-
-Returns only documents in the caller's permitted scope.
-
-``` json
-{"items":[{"document_id":"uuid","filename":"sample_guide.pdf","status":"ready","created_at":"ISO-8601"}]}
-```
-
-## 4. Chat (SSE preferred for final UX)
-
-### `POST /chat`
-
-Request:
-
-``` json
+**Success (Duplicate Detected - 200 OK):**
+```json
 {
-  "message": "How many days do I have to return an item?",
-  "document_ids": ["uuid"],
-  "conversation_id": "optional-uuid"
+  "document_id": "8b2be449-2a62-45e3-8f37-fa286333dbde",
+  "filename": "Customer Support Policy.pdf",
+  "status": "ready",
+  "duplicate": true,
+  "chunk_count": 24
 }
 ```
 
-SSE events should be versioned/documented. Suggested event sequence: -
-`event: status` --- route and stage, no private data. - `event: token`
---- partial answer text. - `event: citations` --- validated citation
-objects. - `event: done` --- final metadata and usage/latency. -
-`event: error` --- safe error code/message and request ID.
+**Errors:**
+- `413 Payload Too Large`: File exceeds `MAX_UPLOAD_BYTES`.
+- `415 Unsupported Media Type`: File format not `.pdf` or `.txt`.
+- `422 Unprocessable Content`: Empty file or no parseable text extracted.
+- `503 Service Unavailable`: Embedding provider down or timeout.
 
-If implementing non-streaming JSON for testability, provide `POST /chat`
-JSON or a clearly named `/chat/completions` endpoint and make the
-frontend's streaming behavior explicit. Avoid returning a mixture of
-JSON and SSE on the same route without negotiation.
+### `GET /api/v1/documents`
+Lists all documents within the caller's permitted owner scope.
 
-Final response shape:
+**Response (200 OK):**
+```json
+[
+  {
+    "document_id": "8b2be449-2a62-45e3-8f37-fa286333dbde",
+    "filename": "Customer Support Policy.pdf",
+    "status": "ready",
+    "created_at": "2026-10-13T04:41:07Z",
+    "byte_size": 2516582,
+    "mime_type": "application/pdf",
+    "page_count": 12
+  }
+]
+```
 
-``` json
+### `GET /api/v1/documents/{document_id}`
+Retrieves full document detail including its indexed chunks and token metrics.
+
+**Response (200 OK):**
+```json
 {
-  "answer": "Items can be returned within 30 days of delivery.",
-  "route": "rag",
-  "abstained": false,
-  "citations": [
+  "document_id": "8b2be449-2a62-45e3-8f37-fa286333dbde",
+  "filename": "Customer Support Policy.pdf",
+  "status": "ready",
+  "created_at": "2026-10-13T04:41:07Z",
+  "byte_size": 2516582,
+  "mime_type": "application/pdf",
+  "page_count": 12,
+  "chunk_count": 24,
+  "chunk_size_tokens": 800,
+  "overlap_tokens": 50,
+  "chunks": [
     {
-      "document_id": "uuid",
-      "document_name": "sample_guide.pdf",
-      "chunk_id": "uuid",
-      "chunk_index": 3,
-      "section": "Returns",
-      "page_start": 2,
-      "page_end": 2,
-      "quote": "Items may be returned within 30 days of delivery."
+      "chunk_id": "c-1",
+      "chunk_index": 0,
+      "text": "This Customer Support Policy explains how we handle customer requests...",
+      "token_count": 28,
+      "section": "1. Introduction",
+      "page_start": 1,
+      "page_end": 1
     }
-  ],
-  "latency_ms": 842
+  ]
 }
 ```
 
-Citation quote must be a substring or otherwise verifiably grounded in
-the retrieved source. Never accept arbitrary citation IDs from model
-output.
+### `GET /api/v1/documents/{document_id}/download`
+Downloads the original document bytes with appropriate `Content-Disposition` and `Content-Type` headers.
+- **Response:** Raw binary or text stream (`200 OK`).
 
-## 5. Order lookup
+### `DELETE /api/v1/documents/{document_id}`
+Deletes a document and cascades deletion to all associated chunks in pgvector.
+- **Response:** `204 No Content`.
 
-### `POST /tools/order-status` (or internal agent tool exposed through chat)
+---
 
-Request:
+## 3. Streaming Chat API
 
-``` json
-{"order_number":"ORD-1002"}
+### `POST /api/v1/chat`
+Streams real-time answers, routing status, and citations via Server-Sent Events (SSE).
+
+**Request:**
+```json
+{
+  "message": "How many days do customers have to return items?",
+  "document_ids": ["8b2be449-2a62-45e3-8f37-fa286333dbde"]
+}
 ```
 
-Success:
+**SSE Event Flow:**
+1. `event: status` — Route classification and processing stage (`retrieving` or `answering`).
+   ```text
+   data: {"route": "rag", "stage": "retrieving"}
+   ```
+2. `event: token` — Incremental answer text tokens.
+   ```text
+   data: {"text": "Customers have 30 days"}
+   ```
+3. `event: citations` — Verified citation candidates grounded in retrieved chunks.
+   ```text
+   data: [{"document_id": "8b2be449-2a62-45e3-8f37-fa286333dbde", "document_name": "Customer Support Policy.pdf", "chunk_id": "c-1", "chunk_index": 0, "section": "Returns", "page_start": 1, "page_end": 1, "quote": "Customers may return items within 30 calendar days of delivery."}]
+   ```
+4. `event: done` — Final completion payload with metadata.
+   ```text
+   data: {"route": "rag", "abstained": false, "latency_ms": 1420, "answer": "Customers have 30 days to return eligible items."}
+   ```
 
-``` json
-{"found":true,"order_number":"ORD-1002","status":"shipped","items":["Wireless keyboard"],"updated_at":"ISO-8601"}
+**Abstention Behavior:**
+When retrieved evidence is below the similarity threshold or does not contain required facts, the system explicitly abstains:
+```text
+event: token
+data: {"text": "I don't know based on the available documents."}
+event: done
+data: {"route": "rag", "abstained": true, "latency_ms": 15, "answer": "I don't know based on the available documents."}
 ```
 
-Not found: return a clear not-found result, not a fabricated status. In
-production, authorize the caller against order ownership.
+---
 
-The assignment specifically expects order-related chat to use the
-required tool. The UI does not need to expose a separate tools page;
-tool usage can be shown in chat metadata/logs for reviewer verification.
+## 4. Controlled Agent Tools
 
-## 6. Ticket creation and confirmation
+### `POST /api/v1/tools/order-status`
+Database-backed order lookup tool. Parameterized and scoped to user ownership.
 
-### `POST /tickets/prepare`
-
-Request:
-
-``` json
-{"subject":"Delivery delay","description":"The parcel has not arrived.","order_number":"ORD-1002"}
+**Request:**
+```json
+{
+  "order_number": "ORD-1001"
+}
 ```
 
-Response:
+**Found Response (200 OK):**
+```json
+{
+  "found": true,
+  "order_number": "ORD-1001",
+  "status": "processing",
+  "items": ["USB-C hub"],
+  "updated_at": "2026-10-02T11:00:00Z"
+}
+```
 
-``` json
+**Not Found Response (200 OK):**
+```json
+{
+  "found": false,
+  "order_number": "ORD-9999",
+  "status": null,
+  "items": [],
+  "updated_at": null
+}
+```
+
+---
+
+## 5. Support Ticket Confirmation Lifecycle
+
+### `POST /api/v1/tickets/prepare`
+Stage 1: Prepares a pending support ticket action. Does **not** write to the ticket database.
+
+**Request:**
+```json
+{
+  "subject": "Exchange damaged item",
+  "description": "Item was damaged during shipping. Requesting replacement.",
+  "order_number": "ORD-1001"
+}
+```
+
+**Response (201 Created):**
+```json
 {
   "confirmation_required": true,
-  "pending_action_id": "uuid",
-  "summary": "Create a ticket about a delivery delay for ORD-1002.",
-  "expires_at": "ISO-8601"
+  "pending_action_id": "2375fbd2-cc66-409d-96f2-580c0520aeef",
+  "summary": "Create a ticket titled 'Exchange damaged item' for ORD-1001.",
+  "expires_at": "2026-10-13T05:10:59Z"
 }
 ```
 
-### `POST /tickets/confirm`
+### `POST /api/v1/tickets/confirm`
+Stage 2: Consumes the pending action token and executes the ticket write. Single-use and replay protected.
 
-Request:
-
-``` json
-{"pending_action_id":"uuid","confirmed":true}
+**Request:**
+```json
+{
+  "pending_action_id": "2375fbd2-cc66-409d-96f2-580c0520aeef",
+  "confirmed": true
+}
 ```
 
-Response on success:
-
-``` json
-{"created":true,"ticket_id":"uuid","ticket_number":"TKT-1001","status":"open"}
+**Success (201 Created):**
+```json
+{
+  "created": true,
+  "ticket_id": "d47003ef-7fa4-4097-9578-26f7b7e7938c",
+  "ticket_number": "TKT-D47003EF",
+  "status": "open"
+}
 ```
 
-Reject expired, already consumed, missing, mismatched, or unconfirmed
-actions. Use idempotency protection.
-
-## 7. Error schema
-
-``` json
+**Replay or Expired Attempt (409 Conflict):**
+```json
 {
   "error": {
-    "code": "DOCUMENT_TOO_LARGE",
-    "message": "The file exceeds the configured upload limit.",
-    "request_id": "uuid"
+    "code": "CONFIRMATION_ALREADY_USED",
+    "message": "The ticket confirmation was already used.",
+    "request_id": "f9564dd5-b413-4660-bd5b-70d83284cdcd"
   }
 }
 ```
 
-## 8. API invariants
+---
 
--   Never return stack traces or provider secrets to clients.
--   Citation references must map to chunks retrieved for this request
-    and authorized scope.
--   Order status must originate from the database tool result.
--   Ticket writes require confirmation.
--   User-provided `document_ids` must be checked against the caller's
-    access scope.
+## 6. Metadata & Evaluation APIs
+
+### `GET /api/v1/meta`
+Returns runtime workspace settings and model configuration.
+
+**Response (200 OK):**
+```json
+{
+  "application_name": "DocuMind",
+  "workspace_name": "Customer Support Workspace",
+  "scope_label": "Standard Support Scope",
+  "accepted_extensions": [".pdf", ".txt"],
+  "max_upload_bytes": 10485760,
+  "max_query_chars": 4000,
+  "suggested_questions": [
+    "What items are not eligible for refund?",
+    "How long does a refund take?",
+    "What is the return process?"
+  ],
+  "order_example": "ORD-1001",
+  "order_number_pattern": "^ORD-[0-9]{4,}$",
+  "embedding_model": "text-embedding-3-small",
+  "embedding_dimensions": 1536,
+  "retrieval_strategy": "hybrid",
+  "retrieval_top_k": 5,
+  "chunk_size_tokens": 800,
+  "chunk_overlap_tokens": 50
+}
+```
+
+### `GET /api/v1/evaluation`
+Retrieves benchmark evaluation specifications and 15 gold evaluation questions.
+
+**Response (200 OK):**
+```json
+{
+  "dataset": "sample_knowledge_document.txt",
+  "questions": [
+    {
+      "id": "Q01",
+      "question": "How many days after delivery can a customer return an eligible item?",
+      "expected_answer": "Within 30 days of delivery.",
+      "gold_section": "Returns and Refunds"
+    }
+  ],
+  "embedding_model": "text-embedding-3-small",
+  "embedding_dimensions": 1536,
+  "retrieval_strategy": "hybrid",
+  "chunk_sizes": [300, 800],
+  "status": "ready",
+  "runs": [],
+  "command": "python -m app.evaluation.runner"
+}
+```
+
+---
+
+## 7. Error Format Standard
+
+All error responses strictly follow the standardized envelope:
+```json
+{
+  "error": {
+    "code": "DOCUMENT_TOO_LARGE",
+    "message": "The file exceeds the configured upload limit.",
+    "request_id": "719bb658-cb36-4c6c-a152-701fb2bb19f2"
+  }
+}
+```
+*Never returns raw stack traces or internal secrets.*

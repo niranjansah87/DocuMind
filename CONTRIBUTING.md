@@ -36,7 +36,7 @@ uv run alembic upgrade head
 uv run python -m app.seed
 
 # Start development server with hot-reload
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8888 --reload
 ```
 
 ### 2. Frontend Web App (`apps/web`)
@@ -51,7 +51,7 @@ npm ci
 npm run dev
 ```
 
-The web app is available at `http://localhost:3000` and automatically proxies `/api/*` requests to `http://127.0.0.1:8000` via Next.js internal rewrites.
+The web app is available at `http://localhost:7777` and automatically proxies `/api/*` requests to `http://127.0.0.1:8888` via Next.js internal rewrites.
 
 ---
 

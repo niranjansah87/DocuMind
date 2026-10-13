@@ -10,10 +10,10 @@ Group=documind
 WorkingDirectory=/var/www/documind/apps/web
 EnvironmentFile=/var/www/documind/.env
 Environment="NODE_ENV=production"
-Environment="PORT=3000"
+Environment="PORT=7777"
 Environment="HOSTNAME=127.0.0.1"
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
-ExecStart=/usr/bin/npm run start -- --port 3000 --hostname 127.0.0.1
+ExecStart=/usr/bin/npm run start -- --port 7777 --hostname 127.0.0.1
 Restart=always
 RestartSec=3
 StandardOutput=journal

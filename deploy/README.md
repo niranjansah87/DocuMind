@@ -9,15 +9,15 @@ Browser Client
      │ (HTTPS only)
      ▼
 Nginx Reverse Proxy (documind.niranjansah87.com.np:443)
-     ├── /                    ──► Next.js Frontend (127.0.0.1:3000)
+     ├── /                    ──► Next.js Frontend (127.0.0.1:7777)
      ├── /_next/static/       ──► Next.js Static Cache
-     ├── /api/*               ──► FastAPI Backend (127.0.0.1:8000) [Buffering OFF for SSE]
+     ├── /api/*               ──► FastAPI Backend (127.0.0.1:8888) [Buffering OFF for SSE]
      └── /health, /ready      ──► FastAPI Health Endpoints
 ```
 
 ### Key Security & Network Features:
 1. **Single Public Domain:** All browser requests use `https://documind.niranjansah87.com.np`.
-2. **Hidden Backend:** The backend is bound to `127.0.0.1:8000` (internal only). There is no public backend domain or exposed port 8000. In browser developer tools / Network tab, all calls appear as relative or same-origin `https://documind.niranjansah87.com.np/api/v1/...`.
+2. **Hidden Backend:** The backend is bound to `127.0.0.1:8888` (internal only). There is no public backend domain or exposed port 8888. In browser developer tools / Network tab, all calls appear as relative or same-origin `https://documind.niranjansah87.com.np/api/v1/...`.
 3. **SSE Streaming Support:** Nginx has `proxy_buffering off;` and `chunked_transfer_encoding on;` for `/api/`, allowing token-by-token streaming without buffering delays.
 4. **Security Hardening:** HSTS, strict framing prevention (`SAMEORIGIN`), MIME sniffing protection (`nosniff`), and systemd sandboxing.
 

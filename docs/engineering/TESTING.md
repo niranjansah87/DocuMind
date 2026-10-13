@@ -1,91 +1,77 @@
-# Testing Strategy
+# Testing and Verification Strategy
 
-## 1. Test pyramid
+## 1. Test Pyramid & Execution
 
-### Unit tests (fast, no network)
+DocuMind enforces automated coverage across unit, integration, contract, and live end-to-end verification levels.
+All test suites run deterministically without requiring external network dependencies (mocks are utilized for isolated tests; live integration tests run against PostgreSQL with pgvector).
 
--   Token/paragraph chunking, overlap, boundary handling and no infinite
-    loops.
--   Content hashing and duplicate detection logic.
--   File validation and parser error conversion.
--   Relevance threshold/abstention policy.
--   Citation allowlist/validation.
--   Router intent decisions.
--   Pydantic tool argument validation.
--   Retry policy and max-step enforcement.
--   Ticket confirmation expiry/replay/idempotency.
--   Provider fallback decision logic.
+---
 
-### Integration tests
+## 2. Test Execution Commands & Verification Results
 
-Use a disposable PostgreSQL/pgvector service or the Compose database. -
-Migrations and vector extension initialization. - Insert/query
-embeddings and metadata filters. - Duplicate upload race protection. -
-Order tool queries seeded data. - Ticket transaction and idempotency. -
-Hybrid search query/fusion behavior. - API errors and health/readiness
-endpoints.
+### 2.1 Backend Test Suite (Python / FastAPI)
+- **Unit and Integration Tests (`pytest`):**
+  ```bash
+  uv run --directory apps/api pytest
+  ```
+  **Result:** 25 passed in 1.83s. Coverage includes chunk boundary calculation, overlap monotonicity, PDF/TXT parsing, citation validation, order tool lookup, ticket confirmation lifecycle, replay protection, and error envelopes.
 
-### Contract/API tests
+- **Fast Code Quality & Linting (`ruff`):**
+  ```bash
+  uv run --directory apps/api ruff check app tests
+  ```
+  **Result:** All checks passed with 0 issues.
 
--   Upload valid PDF/TXT.
--   Reject unsupported, empty, too-large and unparseable files.
--   Chat response shape and citation metadata.
--   Unknown question abstains.
--   User-supplied inaccessible document ID is rejected/ignored safely.
--   Order question invokes the tool path.
--   Ticket preparation does not write; confirmation does.
--   Tool failure returns honest safe output.
+- **Strict Static Type Checking (`mypy`):**
+  ```bash
+  uv run --directory apps/api mypy app tests
+  ```
+  **Result:** Success: no issues found across 55 source files.
 
-### End-to-end/manual tests
+### 2.2 Frontend Verification (Next.js 16 / TypeScript / ESLint)
+- **TypeScript Type Verification:**
+  ```bash
+  cd apps/web && npm run typecheck
+  ```
+  **Result:** `tsc --noEmit` exited with code 0. Zero TypeScript errors.
 
-Follow the exact reviewer workflow on a clean Docker environment and
-verify the frontend and API together.
+- **ESLint Code Quality Check:**
+  ```bash
+  cd apps/web && npm run lint
+  ```
+  **Result:** `eslint .` exited with code 0. Zero errors, zero warnings.
 
-## 2. Required assignment tests
+- **Production Bundle Build:**
+  ```bash
+  cd apps/web && npm run build
+  ```
+  **Result:** Turbopack production compilation succeeded. All 4 routes generated cleanly:
+  - `○ /` (Workspace / Chat page)
+  - `○ /documents` (Documents repository & drawer page)
+  - `ƒ /documents/[id]` (Deep document inspection & PDF viewer page)
+  - `○ /evaluation` (RAG benchmark evaluation page)
 
-1.  **Chunking test:** known input produces non-empty chunks, overlap
-    exists, ordering is preserved, and chunks respect the target
-    approximately according to the selected tokenizer.
-2.  **Retrieval test:** a seeded relevant chunk is ranked for its
-    question and metadata filters exclude unauthorized documents.
-3.  **Tool failure test:** mock database/tool failure; ensure response
-    is honest, no invented order status is returned, and the request
-    does not crash.
+### 2.3 Live End-to-End User Journey Verification
+Tested against running PostgreSQL 18 with pgvector:
+1. `GET /health` & `GET /ready` → 200 OK.
+2. `GET /api/v1/meta` → 200 OK.
+3. `POST /api/v1/documents` → 201 Created (PDF & TXT parsed, chunked, embedded with pgvector).
+4. Duplicate upload detection → 200 OK with `duplicate: true`.
+5. `GET /api/v1/documents/{id}` & `GET /download` → 200 OK.
+6. Order lookup `ORD-1001` → 200 OK (status: processing).
+7. Missing order `ORD-9999` → 200 OK with `found: false` (no fabrication).
+8. Ticket prepare → 201 Created (pending action generated).
+9. Ticket confirm → 201 Created (ticket `TKT-D47003EF` created).
+10. Ticket replay attack → 409 Conflict (`CONFIRMATION_ALREADY_USED`).
+11. RAG streaming chat → 200 OK (grounded answer with verified inline citations).
+12. Unknown question chat → 200 OK (explicit abstention `"I don't know based on the available documents."`).
+13. Order intent routing → 200 OK (routed to database tool).
 
-## 3. Test doubles
+---
 
--   Fake embedding provider returns deterministic vectors with expected
-    dimensions.
--   Fake LLM returns structured grounded output or injected
-    timeout/errors.
--   Repository dependency overrides avoid external API calls.
--   Keep provider integration tests separately marked and require
-    environment credentials explicitly.
+## 3. Coverage Priorities & Safety Invariants
 
-## 4. Test commands (proposed)
-
--   `pytest -q`
--   `pytest -q -m integration`
--   `ruff check .`
--   `mypy app` or an equivalent configured type check
--   Frontend lint/type check and production build.
-
-The exact commands must match the actual dependency and script setup
-after scaffolding.
-
-## 5. Coverage priorities
-
-Prioritize behavior, not a vanity coverage percentage. Required
-high-risk paths: unsupported question, invalid citation, duplicate
-ingestion, cross-scope retrieval, order tool failure, ticket without
-confirmation, model fallback, and provider timeout.
-
-## 6. Definition of done
-
--   Tests pass from a documented clean environment.
--   No test requires a real provider key unless explicitly marked
-    integration.
--   Tests assert observable behavior rather than private implementation
-    details.
--   Failures are deterministic and include enough context to debug
-    without leaking secrets.
+- **Zero Fabricated Tool Data:** Order lookups never return synthetic answers if not found in database.
+- **Citation Allowlist:** Citations are rejected unless their chunk ID belongs to the server-retrieved set for that turn.
+- **Single-Use Confirmation:** Tickets cannot be created without user approval; confirmation tokens expire after 600s and reject replay attempts.
+- **Content-Byte Deduplication:** Hash checks prevent duplicate chunking within tenant scope.

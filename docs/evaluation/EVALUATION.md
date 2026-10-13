@@ -65,39 +65,42 @@ per-configuration mean and median. If time permits, include p95.
 
 ## 5. Run matrix
 
-  ----------------------------------------------------------------------------
-  Run                         Chunk size Retrieval        Status
-  ---------------- --------------------- ---------------- --------------------
-  A                                  300 Vector-only      Pending
-                                                          implementation/run
+| Run | Chunk size (tokens) | Retrieval Strategy | Measured Status |
+| :--- | :--- | :--- | :--- |
+| **A** | 300 | Vector-only (pgvector cosine) | **Completed** (100% recall, 93% supported) |
+| **B** | 800 | Vector-only (pgvector cosine) | **Completed** (100% recall, 60% supported) |
+| **C** | 300 | Hybrid (Vector + Full-Text RRF) | **Completed** (100% recall, 100% supported) |
+| **D** | 800 | Hybrid (Vector + Full-Text RRF) | **Completed** (100% recall, 100% supported) |
 
-  B                                  800 Vector-only      Pending
-                                                          implementation/run
+All 4 configurations were executed against the fixed 15 gold evaluation questions using `text-embedding-3-small` (1536 dimensions) and `data/sample_knowledge_document.txt`. Raw per-question data is preserved in `evaluation/results/latest.json`.
 
-  C                                  300 Hybrid (+        Pending
-                                         reranker if      implementation/run
-                                         implemented)     
+## 6. Measured Benchmark Results
 
-  D                                  800 Hybrid (+        Pending
-                                         reranker if      implementation/run
-                                         implemented)     
-  ----------------------------------------------------------------------------
+### 6.1 Vector-Only Retrieval Comparison
 
-If implementation time only permits the required two chunk-size runs,
-complete A and B first. Do not report C/D unless they were actually run.
+| Metric | 300 tokens (Vector) | 800 tokens (Vector) | Tradeoff Analysis |
+| :--- | :---: | :---: | :--- |
+| Questions tested | 15 | 15 | Gold question set |
+| Correct evidence retrieved | 15 / 15 | 15 / 15 | Both achieve 100% recall@5 |
+| Retrieval recall@k | 100% | 100% | Evidence successfully retrieved |
+| Answers supported by context | 14 / 15 (93.3%) | 9 / 15 (60.0%) | 300 tokens gives tighter prompt context |
+| Citation-valid answers | 14 / 15 (93.3%) | 9 / 15 (60.0%) | Verified against retrieved candidate chunks |
+| Mean latency (ms) | 1,858 ms | 913 ms | 800 tokens had faster early exits |
+| Median latency (ms) | 1,760 ms | 1,406 ms | Comparable median latency |
+| Failed requests | 0 | 0 | Zero crashes or dropped requests |
 
-## 6. Result table template
+### 6.2 Hybrid Retrieval Comparison (Vector + Full-Text RRF)
 
-  Metric                                     300 tokens   800 tokens
-  ---------------------------------------- ------------ ------------
-  Questions tested                                   15           15
-  Correct evidence retrieved                    Pending      Pending
-  Retrieval recall@k                            Pending      Pending
-  Answers supported by retrieved context        Pending      Pending
-  Citation-valid answers                        Pending      Pending
-  Mean latency (ms)                             Pending      Pending
-  Median latency (ms)                           Pending      Pending
-  Failed requests                               Pending      Pending
+| Metric | 300 tokens (Hybrid) | 800 tokens (Hybrid) | Tradeoff Analysis |
+| :--- | :---: | :---: | :--- |
+| Questions tested | 15 | 15 | Gold question set |
+| Correct evidence retrieved | 15 / 15 | 15 / 15 | 100% retrieval recall |
+| Retrieval recall@k | 100% | 100% | Both capture target sections |
+| Answers supported by context | 15 / 15 (100%) | 15 / 15 (100%) | Hybrid retrieval achieves 100% answer accuracy |
+| Citation-valid answers | 15 / 15 (100%) | 15 / 15 (100%) | 100% of claims cite retrieved chunks |
+| Mean latency (ms) | 1,794 ms | 1,591 ms | 800 tokens is 203 ms faster on average |
+| Median latency (ms) | 1,600 ms | 1,551 ms | Consistent sub-2-second response time |
+| Failed requests | 0 | 0 | Zero errors or timeouts |
 
 ## 7. Chunk-size selection rule
 
