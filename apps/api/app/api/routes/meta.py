@@ -12,9 +12,7 @@ router = APIRouter(tags=["metadata"])
 def data_path(filename: str) -> Path:
     container_path = Path("/data") / filename
     return (
-        container_path
-        if container_path.exists()
-        else Path(__file__).parents[5] / "data" / filename
+        container_path if container_path.exists() else Path(__file__).parents[5] / "data" / filename
     )
 
 
@@ -61,9 +59,7 @@ async def app_meta(settings: Settings = Depends(get_settings)) -> AppMetaRespons
 async def evaluation(settings: Settings = Depends(get_settings)) -> EvaluationResponse:
     questions = [
         EvaluationQuestion.model_validate(item)
-        for item in json.loads(
-            data_path("gold_questions.json").read_text(encoding="utf-8")
-        )
+        for item in json.loads(data_path("gold_questions.json").read_text(encoding="utf-8"))
     ]
     runs = latest_evaluation_runs()
     return EvaluationResponse(

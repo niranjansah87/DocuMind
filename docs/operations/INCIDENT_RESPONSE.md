@@ -78,3 +78,4 @@ Within 24 hours of resolving any P0 or P1 incident:
 1. Document the incident timeline (Detection -> Triage -> Mitigation -> Resolution).
 2. Identify root cause using the *5 Whys* methodology.
 3. Commit action items to prevent recurrence (e.g. adding automated alerts, tuning pool sizes, adding retry logic).
+

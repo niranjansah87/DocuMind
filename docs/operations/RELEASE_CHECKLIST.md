@@ -58,3 +58,4 @@ If post-deployment smoke tests fail or elevated 5xx error rates occur:
    Or restore from the pre-deployment snapshot if schema corruption occurred.
 3. **Verify Health:** Confirm `/ready` probe returns HTTP 200.
 4. **Post-Mortem:** Conduct root cause analysis within 24 hours.
+

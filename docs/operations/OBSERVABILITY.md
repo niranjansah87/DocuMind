@@ -80,3 +80,4 @@ DocuMind exposes operational metrics at `GET /metrics` in standard Prometheus te
 | **DatabaseDown** | P0 (Emergency) | `documind_database_healthy == 0` for > 30s | Verify PostgreSQL container health, connection limits, and disk space. |
 | **ElevatedRAGLatency** | P2 (Warning) | p95 latency on `/api/v1/chat` > 4,000ms over 10m | Check OpenAI API status, provider rate limits, and pgvector IVFFlat index health. |
 | **RateLimitSpike** | P2 (Warning) | Rate limit rejections > 50 / min | Review client IPs for abusive scraping or misconfigured client retry loops. |
+

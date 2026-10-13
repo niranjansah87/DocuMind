@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
@@ -5,20 +6,32 @@ from typing import Annotated
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
-ROOT_ENV = Path(__file__).resolve().parents[4] / ".env"
+ROOT_DIR = Path(__file__).resolve().parents[4]
+APP_DIR = Path(__file__).resolve().parents[2]
+
+_app_env = os.getenv("APP_ENV", "development").lower()
+_env_files: list[str] = [
+    str(ROOT_DIR / ".env"),
+    str(APP_DIR / ".env"),
+]
+if _app_env == "production":
+    _env_files.extend(
+        [
+            str(ROOT_DIR / ".env.production"),
+            str(APP_DIR / ".env.production"),
+        ]
+    )
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(ROOT_ENV, ".env.production", ".env"), extra="ignore", case_sensitive=False
+        env_file=tuple(_env_files), extra="ignore", case_sensitive=False
     )
 
     app_env: str = "development"
     api_host: str = "0.0.0.0"
     api_port: int = 8888
-    database_url: str = (
-        "postgresql+asyncpg://documind:documind-local-only@localhost:5432/documind"
-    )
+    database_url: str = "postgresql+asyncpg://documind:documind-local-only@localhost:5432/documind"
     cors_origins: Annotated[list[str], NoDecode] = [
         "http://localhost:7777",
         "http://127.0.0.1:7777",
@@ -43,6 +56,24 @@ class Settings(BaseSettings):
     request_timeout_seconds: float = Field(default=60, gt=0, le=300)
     ticket_confirmation_ttl_seconds: int = Field(default=600, ge=60, le=3600)
     log_level: str = "INFO"
+    log_format: str = "text"
+
+    # Authentication & Security
+    auth_required: bool = False
+    api_key: str | None = None
+
+    # Rate Limiting (sliding window per-IP / per-user)
+    rate_limit_enabled: bool = True
+    rate_limit_upload_per_minute: int = Field(default=15, ge=1)
+    rate_limit_chat_per_minute: int = Field(default=60, ge=1)
+    rate_limit_tools_per_minute: int = Field(default=30, ge=1)
+    rate_limit_general_per_minute: int = Field(default=120, ge=1)
+
+    # Database Connection Pooling
+    db_pool_size: int = Field(default=10, ge=1, le=100)
+    db_max_overflow: int = Field(default=20, ge=0, le=100)
+    db_pool_recycle_seconds: int = Field(default=1800, ge=60)
+    db_pool_timeout_seconds: float = Field(default=30.0, ge=1.0)
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -59,13 +90,9 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_rag_settings(self) -> "Settings":
         if self.chunk_overlap_tokens >= self.chunk_size_tokens:
-            raise ValueError(
-                "CHUNK_OVERLAP_TOKENS must be smaller than CHUNK_SIZE_TOKENS"
-            )
+            raise ValueError("CHUNK_OVERLAP_TOKENS must be smaller than CHUNK_SIZE_TOKENS")
         if self.embedding_dimensions != 1536:
-            raise ValueError(
-                "EMBEDDING_DIMENSIONS must match the migration's 1536 dimensions"
-            )
+            raise ValueError("EMBEDDING_DIMENSIONS must match the migration's 1536 dimensions")
         return self
 
 

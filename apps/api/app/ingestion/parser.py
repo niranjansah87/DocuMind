@@ -31,14 +31,10 @@ def parse_document(upload: ValidatedUpload) -> ParsedDocument:
                 pages.append((page_index, page_text))
             text = "\n\n".join(pt for _, pt in pages if pt)
     except (UnicodeDecodeError, ValueError, OSError, PyPdfError) as exc:
-        raise AppError(
-            "DOCUMENT_UNPARSEABLE", "The document could not be parsed.", 422
-        ) from exc
+        raise AppError("DOCUMENT_UNPARSEABLE", "The document could not be parsed.", 422) from exc
     normalized = "\n".join(
         line.rstrip() for line in text.replace("\r\n", "\n").splitlines()
     ).strip()
     if not normalized:
-        raise AppError(
-            "DOCUMENT_UNPARSEABLE", "The document contains no extractable text.", 422
-        )
+        raise AppError("DOCUMENT_UNPARSEABLE", "The document contains no extractable text.", 422)
     return ParsedDocument(normalized, page_count, pages)

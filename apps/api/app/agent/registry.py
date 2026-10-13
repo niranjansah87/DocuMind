@@ -1,9 +1,7 @@
 from typing import Literal, cast
 
 ToolName = Literal["search_docs", "get_order_status", "create_ticket"]
-TOOL_REGISTRY: frozenset[ToolName] = frozenset(
-    {"search_docs", "get_order_status", "create_ticket"}
-)
+TOOL_REGISTRY: frozenset[ToolName] = frozenset({"search_docs", "get_order_status", "create_ticket"})
 
 
 def require_registered_tool(name: str) -> ToolName:

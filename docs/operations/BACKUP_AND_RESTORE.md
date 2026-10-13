@@ -92,3 +92,4 @@ docker compose exec -T db pg_restore --list < "${BACKUP_FILE}" | head -n 20
 - **Daily Backups:** Retained locally for 14 days.
 - **Weekly Backups:** Replicated to encrypted offsite object storage (AWS S3 / GCS bucket with versioning and immutable object lock) for 90 days.
 - **Quarterly Disaster Recovery Drill:** Execute restore procedure in staging environment every 90 days.
+

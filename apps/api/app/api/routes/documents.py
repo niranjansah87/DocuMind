@@ -28,6 +28,13 @@ async def upload_document(
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> DocumentUploadResponse:
+    """doc-mind-ai: Ingest and persist document with byte-level SHA-256 deduplication and token-aware chunking.
+
+    Validates file MIME type (PDF/TXT) and size bounds, computes SHA-256 digest
+    for idempotent deduplication within owner scope, extracts text with section
+    and page boundaries, generates vector embeddings, and stores document records
+    and pgvector chunks in a transactional commit.
+    """
     content = await file.read(settings.max_upload_bytes + 1)
     result = await IngestionService(session, settings).ingest(
         owner_id, file.filename, file.content_type, content
@@ -115,14 +122,17 @@ async def download_document(
     text_content = "\n\n".join(chunk.text for chunk in chunks)
     media_type = "text/plain; charset=utf-8"
     filename = (
-        document.filename
-        if document.filename.endswith(".txt")
-        else f"{document.filename}.txt"
+        document.filename if document.filename.endswith(".txt") else f"{document.filename}.txt"
     )
     return Response(
         content=text_content.encode("utf-8"),
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+            "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
     )
 
 

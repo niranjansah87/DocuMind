@@ -36,9 +36,7 @@ def chunk_text(
     if not text.strip():
         return []
     if target_tokens <= 0 or overlap_tokens < 0 or overlap_tokens >= target_tokens:
-        raise ValueError(
-            "Chunk size must be positive and overlap smaller than chunk size"
-        )
+        raise ValueError("Chunk size must be positive and overlap smaller than chunk size")
     encoding = tiktoken.get_encoding("cl100k_base")
     tokens = encoding.encode(text)
     step = target_tokens - overlap_tokens

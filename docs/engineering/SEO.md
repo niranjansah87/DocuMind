@@ -54,3 +54,4 @@ Search engine indexing is strictly restricted to public brand and landing surfac
 
 ### 3.3 Dynamic `sitemap.xml` (`app/sitemap.ts`)
 Only the public root `/` is published in `sitemap.xml`. No user-uploaded document IDs or generated content may ever appear in the sitemap.
+
