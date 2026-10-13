@@ -48,7 +48,11 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
-    const backendUrl = process.env.INTERNAL_API_URL || "http://127.0.0.1:8888";
+    // If running in Docker (or configured via env), use http://api:8888, else default to host http://127.0.0.1:8888
+    const isDocker = Boolean(process.env.INTERNAL_API_URL || process.env.DOCKER_CONTAINER || process.env.IS_DOCKER);
+    const backendUrl =
+      process.env.INTERNAL_API_URL ||
+      (isDocker ? "http://api:8888" : "http://127.0.0.1:8888");
     return [
       {
         source: "/api/:path*",

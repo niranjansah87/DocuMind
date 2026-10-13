@@ -17,42 +17,33 @@ export default function ErrorBoundary({
   }, [error]);
 
   return (
-    <div className="min-h-screen bg-[#07090E] text-white flex items-center justify-center p-6">
-      <div className="max-w-md w-full rounded-2xl bg-[#0D121F] border border-red-500/20 p-8 shadow-2xl text-center space-y-6">
-        <div className="w-14 h-14 mx-auto rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400">
-          <Icon name="alert-circle" className="w-7 h-7" />
+    <main className="system-page">
+      <section className="system-card" aria-labelledby="error-title">
+        <div className="system-icon danger">
+          <Icon name="alert-circle" size={26} />
         </div>
-
-        <div className="space-y-2">
-          <h1 className="text-xl font-semibold tracking-tight text-white">
-            Application Error Encountered
-          </h1>
-          <p className="text-sm text-slate-400 leading-relaxed">
+        <div>
+          <span className="system-kicker">Workspace interrupted</span>
+          <h1 id="error-title">We couldn&apos;t open this view</h1>
+          <p>
             An unexpected error occurred while rendering this view. Your documents and chat history remain safe.
           </p>
         </div>
 
         {error.digest && (
-          <div className="text-xs font-mono bg-black/40 text-slate-500 py-1.5 px-3 rounded-lg border border-white/5">
+          <div className="system-code">
             Error ID: {error.digest}
           </div>
         )}
-
-        <div className="flex items-center justify-center gap-3 pt-2">
-          <button
-            onClick={() => reset()}
-            className="px-4 py-2 rounded-xl text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer"
-          >
-            Try Again
+        <div className="system-actions">
+          <button onClick={() => reset()} className="system-primary-action">
+            Try again
           </button>
-          <Link
-            href="/"
-            className="px-4 py-2 rounded-xl text-sm font-medium bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-colors"
-          >
-            Back to Workspace
+          <Link href="/" className="system-secondary-action">
+            Back to workspace
           </Link>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

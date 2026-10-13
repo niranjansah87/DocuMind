@@ -168,9 +168,6 @@ export default function DocumentDetailPage() {
             <Icon name="trash" size={15} />
             <span>Delete</span>
           </button>
-          <button className="detail-icon-btn outline" title="More options">
-            <Icon name="more" size={16} />
-          </button>
         </div>
       </header>
 
@@ -241,17 +238,6 @@ export default function DocumentDetailPage() {
               </button>
             </div>
 
-            <div className="toolbar-actions-right">
-              <button className="toolbar-btn" title="Fit to width">
-                <Icon name="expand" size={15} />
-              </button>
-              <button className="toolbar-btn" title="Fullscreen">
-                <Icon name="maximize" size={15} />
-              </button>
-              <button className="toolbar-btn" title="Search document">
-                <Icon name="search" size={15} />
-              </button>
-            </div>
           </div>
 
           {/* Two-pane Viewer: Thumbnails rail on left, Sheet on right */}
