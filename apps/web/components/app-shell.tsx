@@ -49,6 +49,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     window.dispatchEvent(new CustomEvent("documind:load-prompt", { detail: item.prompt }));
   };
 
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -168,21 +172,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Bottom User Profile */}
         <div className="sidebar-user-footer">
-          <motion.div
-            whileHover={{ scale: 1.01, backgroundColor: "var(--ink-100)" }}
-            whileTap={{ scale: 0.98 }}
-            transition={{ duration: 0.15 }}
-            className="user-profile-card"
-          >
-            <div className="user-avatar">N</div>
-            <div className="user-details">
-              <span className="user-name">Niranjan Sah</span>
-              <span className="user-workspace">Personal Workspace</span>
-            </div>
-            <div className="user-dropdown-icon">
-              <Icon name="chevron-down" size={14} />
-            </div>
-          </motion.div>
+          <Link href="/login" className="block text-inherit no-underline">
+            <motion.div
+              whileHover={{ scale: 1.01, backgroundColor: "var(--ink-100)" }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ duration: 0.15 }}
+              className="user-profile-card cursor-pointer"
+              title="Manage workspace authentication and credentials"
+            >
+              <div className="user-avatar">N</div>
+              <div className="user-details">
+                <span className="user-name">Niranjan Sah</span>
+                <span className="user-workspace">Workspace Auth</span>
+              </div>
+              <div className="user-dropdown-icon">
+                <Icon name="tune" size={14} />
+              </div>
+            </motion.div>
+          </Link>
         </div>
       </aside>
 

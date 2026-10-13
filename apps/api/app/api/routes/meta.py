@@ -1,12 +1,28 @@
 import json
+import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
 
+from app.api.dependencies import get_owner_id
 from app.core.config import Settings, get_settings
 from app.schemas.meta import AppMetaResponse, EvaluationQuestion, EvaluationResponse
 
 router = APIRouter(tags=["metadata"])
+
+
+@router.get("/auth/verify")
+async def verify_auth(
+    owner_id: uuid.UUID = Depends(get_owner_id),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    """Verify client authentication credentials and return current tenant identity."""
+    return {
+        "authenticated": True,
+        "owner_id": str(owner_id),
+        "auth_required": settings.auth_required,
+    }
+
 
 
 def data_path(filename: str) -> Path:

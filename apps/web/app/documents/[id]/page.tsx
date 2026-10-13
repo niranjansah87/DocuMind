@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { motion } from "motion/react";
 import { Icon } from "@/components/icons";
 import { deleteDocument, getDocument } from "@/lib/api";
 import type { DocumentDetail } from "@/lib/types";
@@ -83,7 +84,8 @@ export default function DocumentDetailPage() {
 
   const handleDownload = () => {
     if (!document) return;
-    window.open(`http://localhost:8000/api/v1/documents/${document.document_id}/download`, "_blank");
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+    window.open(`${baseUrl}/api/v1/documents/${document.document_id}/download`, "_blank");
   };
 
   if (loading) {
@@ -98,11 +100,29 @@ export default function DocumentDetailPage() {
   }
 
   const docName = document?.filename ?? "Customer Support Policy.pdf";
+  const isPdf = docName.toLowerCase().endsWith(".pdf");
   const fileSizeMb = document ? (document.byte_size / (1024 * 1024)).toFixed(1) : "2.4";
-  const chunkCount = document?.chunk_count ?? 24;
+  const chunkCount = document?.chunk_count ?? (document?.chunks ? document.chunks.length : 24);
+  const totalTokens = document?.chunks
+    ? document.chunks.reduce((sum, c) => sum + (c.token_count || 0), 0)
+    : 5842;
+  const uploadDateStr = document?.created_at
+    ? new Date(document.created_at).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "Recently uploaded";
 
   return (
-    <main className="document-detail-page">
+    <motion.main
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+      className="document-detail-page"
+    >
       {/* Breadcrumb row */}
       <div className="detail-breadcrumb-row">
         <Link href="/documents" className="breadcrumb-link">
@@ -115,13 +135,13 @@ export default function DocumentDetailPage() {
       {/* Top Document Header Bar */}
       <header className="detail-header-bar">
         <div className="detail-header-left">
-          <div className="detail-pdf-icon-box">
-            <Icon name="pdf" size={26} />
+          <div className={`detail-pdf-icon-box ${isPdf ? "" : "txt-doc"}`}>
+            <Icon name={isPdf ? "pdf" : "txt"} size={26} />
           </div>
           <div className="detail-title-col">
             <h1 className="detail-doc-title">{docName}</h1>
             <p className="detail-doc-meta">
-              Uploaded Oct 12, 2026 at 10:24 AM • {fileSizeMb} MB • {chunkCount} chunks • 5,842 tokens
+              Uploaded {uploadDateStr} • {fileSizeMb} MB • {chunkCount} chunks • {totalTokens.toLocaleString()} tokens
             </p>
           </div>
         </div>
@@ -261,50 +281,39 @@ export default function DocumentDetailPage() {
                     <div className="paper-header-row">
                       <h2 className="paper-brand-title">DocuMind</h2>
                       <div className="paper-header-right">
-                        <span>Customer Support Policy</span>
-                        <small>Version 1.0 • Oct 2026</small>
+                        <span>{docName}</span>
+                        <small>
+                          {isPdf ? "PDF Document" : "Text Document"} • Page {currentPage} of {totalPages}
+                        </small>
                       </div>
                     </div>
 
                     <div className="paper-content-flow">
-                      <section className="paper-section">
-                        <h3>1. Introduction</h3>
-                        <p>
-                          This Customer Support Policy explains how we handle customer requests, including
-                          returns, refunds, order support, and general inquiries. Our goal is to ensure a smooth
-                          and transparent experience for all customers.
-                        </p>
-                      </section>
-
-                      <section className="paper-section">
-                        <h3>2. Refund Policy</h3>
-                        <h4>2.1 Overview</h4>
-                        <p>
-                          <mark className="highlighted-text-quote">
-                            Refunds are generally processed within 5–7 business days after an approved return
-                            is received and inspected. The refund will be issued to the original payment method
-                            used at the time of purchase.
-                          </mark>
-                        </p>
-
-                        <h4>2.2 Eligibility</h4>
-                        <p>
-                          To be eligible for a refund, the item must be returned within 30 days of delivery and
-                          must be in its original condition with all packaging and accessories.
-                        </p>
-
-                        <h4>2.3 Non-Refundable Items</h4>
-                        <p>
-                          Certain items such as digital products, gift cards, and perishable goods are not
-                          eligible for refunds.
-                        </p>
-
-                        <h4>2.4 Partial Refunds</h4>
-                        <p>
-                          In some cases, only a partial refund may be issued, for example if the item is returned
-                          in a used or damaged condition.
-                        </p>
-                      </section>
+                      {document?.chunks && document.chunks.length > 0 ? (
+                        document.chunks
+                          .filter((c) => !c.page_start || c.page_start === currentPage || totalPages === 1)
+                          .map((chunk, idx) => (
+                            <section key={chunk.chunk_id || idx} className="paper-section">
+                              <h3>{chunk.section || `Chunk ${chunk.chunk_index + 1}`}</h3>
+                              <p>
+                                {idx === 0 ? (
+                                  <mark className="highlighted-text-quote">{chunk.text}</mark>
+                                ) : (
+                                  chunk.text
+                                )}
+                              </p>
+                            </section>
+                          ))
+                      ) : (
+                        <section className="paper-section">
+                          <h3>1. Document Preview</h3>
+                          <p>
+                            {document?.status === "processing"
+                              ? "Document is currently being processed and chunked..."
+                              : "No extracted chunks available for this document."}
+                          </p>
+                        </section>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -373,7 +382,7 @@ export default function DocumentDetailPage() {
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">File type</span>
-                  <span className="kv-value">PDF</span>
+                  <span className="kv-value">{isPdf ? "PDF" : "TXT"}</span>
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">File size</span>
@@ -385,11 +394,11 @@ export default function DocumentDetailPage() {
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">Upload date</span>
-                  <span className="kv-value">Oct 12, 2026, 10:24 AM</span>
+                  <span className="kv-value">{uploadDateStr}</span>
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">Processed at</span>
-                  <span className="kv-value">Oct 12, 2026, 10:25 AM</span>
+                  <span className="kv-value">{uploadDateStr}</span>
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">Total chunks</span>
@@ -397,11 +406,13 @@ export default function DocumentDetailPage() {
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">Total tokens</span>
-                  <span className="kv-value">5,842</span>
+                  <span className="kv-value">{totalTokens.toLocaleString()}</span>
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">Status</span>
-                  <span className="status-pill-green">Completed</span>
+                  <span className={`status-pill-${document?.status === "ready" ? "green" : "blue"}`}>
+                    {document?.status === "ready" ? "Completed" : document?.status === "processing" ? "Processing" : "Failed"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -473,6 +484,6 @@ export default function DocumentDetailPage() {
           </div>
         </aside>
       </div>
-    </main>
+    </motion.main>
   );
 }

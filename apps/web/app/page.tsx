@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Icon } from "@/components/icons";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 import {
   confirmTicket,
   getAppMeta,
@@ -54,6 +55,9 @@ export default function WorkspacePage() {
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const streamAnimRef = useRef<number | null>(null);
+  const streamBufferRef = useRef({ target: "", rendered: "", done: false });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const controller = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -99,7 +103,7 @@ export default function WorkspacePage() {
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: busy ? "auto" : "smooth" });
   }, [messages, busy]);
 
   const refreshDocuments = async () => {
@@ -161,19 +165,54 @@ export default function WorkspacePage() {
     controller.current = new AbortController();
 
     const docIds = activeDocId ? [activeDocId] : documents.map((d) => d.document_id);
+    setStreamingMessageId(assistantId);
+
+    streamBufferRef.current = { target: "", rendered: "", done: false };
+    const buf = streamBufferRef.current;
+
+    // Smooth token streaming loop running at display refresh rate
+    const runStreamTick = () => {
+      if (buf.rendered.length < buf.target.length) {
+        const diff = buf.target.length - buf.rendered.length;
+        const step = diff > 80 ? 5 : diff > 35 ? 3 : diff > 10 ? 2 : 1;
+        buf.rendered = buf.target.slice(0, buf.rendered.length + step);
+        const textToDisplay = buf.rendered;
+        setMessages((current) =>
+          current.map((item) => (item.id === assistantId ? { ...item, text: textToDisplay } : item)),
+        );
+      }
+      if (!buf.done || buf.rendered.length < buf.target.length) {
+        streamAnimRef.current = requestAnimationFrame(runStreamTick);
+      }
+    };
+    streamAnimRef.current = requestAnimationFrame(runStreamTick);
 
     try {
       const result = await streamChat(
         text,
         docIds,
-        (partial) =>
-          setMessages((current) =>
-            current.map((item) => (item.id === assistantId ? { ...item, text: partial } : item)),
-          ),
+        (partial) => {
+          buf.target = partial;
+        },
         controller.current.signal,
         (next) =>
           setStage(next === "retrieving" ? "Searching documents" : "Formulating answer"),
       );
+
+      buf.done = true;
+      buf.target = result.answer;
+
+      // Allow remaining tokens to smoothly complete into view
+      while (buf.rendered.length < buf.target.length) {
+        await new Promise((r) => setTimeout(r, 16));
+        const diff = buf.target.length - buf.rendered.length;
+        const step = Math.max(2, Math.ceil(diff / 3));
+        buf.rendered = buf.target.slice(0, buf.rendered.length + step);
+        const textToDisplay = buf.rendered;
+        setMessages((current) =>
+          current.map((item) => (item.id === assistantId ? { ...item, text: textToDisplay } : item)),
+        );
+      }
 
       setMessages((current) =>
         current.map((item) =>
@@ -193,6 +232,9 @@ export default function WorkspacePage() {
         setActiveCitation(result.citations[0]);
       }
     } catch (reason) {
+      if (streamAnimRef.current) {
+        cancelAnimationFrame(streamAnimRef.current);
+      }
       const msg =
         reason instanceof DOMException && reason.name === "AbortError"
           ? "Generation stopped."
@@ -202,6 +244,11 @@ export default function WorkspacePage() {
       setError(msg);
       setMessages((current) => current.filter((item) => item.id !== assistantId));
     } finally {
+      streamBufferRef.current.done = true;
+      if (streamAnimRef.current) {
+        cancelAnimationFrame(streamAnimRef.current);
+      }
+      setStreamingMessageId(null);
       setBusy(false);
       setStage("");
       controller.current = null;
@@ -361,43 +408,16 @@ export default function WorkspacePage() {
                       {/* Message text */}
                       <div className="assistant-text-content">
                         {message.text ? (
-                          <div className="markdown-prose">
-                            {message.text.split("\n\n").map((paragraph, pIdx) => {
-                              // If it has bullet points
-                              if (paragraph.includes("\n* ") || paragraph.startsWith("* ") || paragraph.startsWith("- ")) {
-                                const lines = paragraph.split("\n");
-                                return (
-                                  <ul key={pIdx} className="assistant-bullet-list">
-                                    {lines.map((line, lIdx) => (
-                                      <li key={lIdx}>
-                                        {line.replace(/^[-*]\s*/, "")}
-                                        {/* Show inline citation pills if on last bullet */}
-                                        {lIdx === lines.length - 1 && message.citations && (
-                                          <span className="inline-citations-wrap">
-                                            {message.citations.map((c, cIdx) => (
-                                              <button
-                                                key={c.chunk_id}
-                                                className="citation-pill-badge"
-                                                onClick={() => {
-                                                  setActiveCitation(c);
-                                                  setActiveTab("sources");
-                                                  setInspectorOpen(true);
-                                                }}
-                                                title={`View source ${cIdx + 1}: ${c.section ?? c.document_name}`}
-                                              >
-                                                {cIdx + 1}
-                                              </button>
-                                            ))}
-                                          </span>
-                                        )}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                );
-                              }
-                              return <p key={pIdx}>{paragraph}</p>;
-                            })}
-                          </div>
+                          <MarkdownRenderer
+                            content={message.text}
+                            isStreaming={streamingMessageId === message.id}
+                            citations={message.citations}
+                            onCitationClick={(c) => {
+                              setActiveCitation(c);
+                              setActiveTab("sources");
+                              setInspectorOpen(true);
+                            }}
+                          />
                         ) : (
                           <div className="streaming-indicator">
                             <span className="streaming-dot" />

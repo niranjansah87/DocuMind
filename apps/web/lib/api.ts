@@ -1,3 +1,4 @@
+import { getAuthHeaders } from "./auth";
 import type {
   ApiError,
   AppMeta,
@@ -29,20 +30,38 @@ export async function checkHealth(signal?: AbortSignal): Promise<boolean> {
   return response.ok;
 }
 
+export async function verifyAuth(): Promise<{ authenticated: boolean; owner_id: string; auth_required: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/verify`, {
+    headers: { ...getAuthHeaders() },
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(await errorMessage(response));
+  return response.json() as Promise<{ authenticated: boolean; owner_id: string; auth_required: boolean }>;
+}
+
 export async function getAppMeta(): Promise<AppMeta> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/meta`, { cache: "no-store" });
+  const response = await fetch(`${API_BASE_URL}/api/v1/meta`, {
+    headers: { ...getAuthHeaders() },
+    cache: "no-store",
+  });
   if (!response.ok) throw new Error(await errorMessage(response));
   return response.json() as Promise<AppMeta>;
 }
 
 export async function getEvaluation(): Promise<EvaluationData> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/evaluation`, { cache: "no-store" });
+  const response = await fetch(`${API_BASE_URL}/api/v1/evaluation`, {
+    headers: { ...getAuthHeaders() },
+    cache: "no-store",
+  });
   if (!response.ok) throw new Error(await errorMessage(response));
   return response.json() as Promise<EvaluationData>;
 }
 
 export async function listDocuments(): Promise<DocumentItem[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/documents`, { cache: "no-store" });
+  const response = await fetch(`${API_BASE_URL}/api/v1/documents`, {
+    headers: { ...getAuthHeaders() },
+    cache: "no-store",
+  });
   if (!response.ok) throw new Error(await errorMessage(response));
   return ((await response.json()) as { items: DocumentItem[] }).items;
 }
@@ -50,26 +69,39 @@ export async function listDocuments(): Promise<DocumentItem[]> {
 export async function uploadDocument(file: File): Promise<UploadResult> {
   const body = new FormData();
   body.append("file", file);
-  const response = await fetch(`${API_BASE_URL}/api/v1/documents`, { method: "POST", body });
+  const response = await fetch(`${API_BASE_URL}/api/v1/documents`, {
+    method: "POST",
+    headers: { ...getAuthHeaders() },
+    body,
+  });
   if (!response.ok) throw new Error(await errorMessage(response));
   return response.json() as Promise<UploadResult>;
 }
 
 export async function getDocument(documentId: string): Promise<DocumentDetail> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/documents/${documentId}`, { cache: "no-store" });
+  const response = await fetch(`${API_BASE_URL}/api/v1/documents/${documentId}`, {
+    headers: { ...getAuthHeaders() },
+    cache: "no-store",
+  });
   if (!response.ok) throw new Error(await errorMessage(response));
   return response.json() as Promise<DocumentDetail>;
 }
 
 export async function deleteDocument(documentId: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/documents/${documentId}`, { method: "DELETE" });
+  const response = await fetch(`${API_BASE_URL}/api/v1/documents/${documentId}`, {
+    method: "DELETE",
+    headers: { ...getAuthHeaders() },
+  });
   if (!response.ok) throw new Error(await errorMessage(response));
 }
 
 export async function prepareTicket(draft: TicketDraft): Promise<PendingTicket> {
   const response = await fetch(`${API_BASE_URL}/api/v1/tickets/prepare`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
     body: JSON.stringify(draft),
   });
   if (!response.ok) throw new Error(await errorMessage(response));
@@ -79,7 +111,10 @@ export async function prepareTicket(draft: TicketDraft): Promise<PendingTicket> 
 export async function confirmTicket(pendingActionId: string): Promise<CreatedTicket> {
   const response = await fetch(`${API_BASE_URL}/api/v1/tickets/confirm`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
     body: JSON.stringify({ pending_action_id: pendingActionId, confirmed: true }),
   });
   if (!response.ok) throw new Error(await errorMessage(response));
@@ -107,7 +142,10 @@ export async function streamChat(
 ): Promise<StreamResult> {
   const response = await fetch(`${API_BASE_URL}/api/v1/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
     body: JSON.stringify({ message, document_ids: documentIds }),
     signal,
   });

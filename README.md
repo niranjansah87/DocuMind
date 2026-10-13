@@ -5,10 +5,10 @@ DocuMind is an enterprise-grade, document-grounded question-and-answer assistant
 > **Production Hardening Status — Complete, Verified, and Audited:**
 > - **Branch:** `feature/documind-production-hardening`
 > - **Backend Test Suite:** 42 automated tests passing (`pytest`, `ruff`, strict `mypy`).
-> - **Frontend Build:** All 7 static and dynamic Next.js routes compiled cleanly with Turbopack.
-> - **Security & Guardrails:** Dual-mode token authentication, tenant scoping, sliding-window rate limiting (429), CSP & security headers, automated credential scrubbing in logs.
+> - **Frontend Build:** All 8 static and dynamic Next.js routes compiled cleanly with Turbopack.
+> - **Security & Guardrails:** Dual-mode token authentication, dedicated `/login` credentials manager, tenant scoping, sliding-window rate limiting (429), CSP & security headers, automated credential scrubbing in logs.
 > - **Observability & SRE:** Structured JSON logging, request ID tracing (`contextvars`), Prometheus metrics (`/metrics`), operational runbooks.
-> - **SEO & Privacy:** Dynamic `robots.txt` and `sitemap.xml` strictly excluding private document paths.
+> - **SEO & Privacy:** Dynamic `robots.txt` and `sitemap.xml` strictly excluding private document paths and `/login`.
 
 ---
 
@@ -105,6 +105,7 @@ apps/
       documents/           Document repository (/documents) + layout (noindex)
       documents/[id]/      Document viewer & excerpt inspector (/documents/[id])
       evaluation/          RAG benchmark dashboard (/evaluation) + layout (noindex)
+      login/               Dedicated Authentication & Tenant manager (/login) + layout (noindex)
       error.tsx            React runtime error boundary
       layout.tsx           Root shell with SEO OpenGraph & Twitter metadata
       not-found.tsx        Custom 404 page
@@ -112,7 +113,7 @@ apps/
       robots.ts            Dynamic robots.txt disallowing private routes
       sitemap.ts           Dynamic sitemap.xml for public root only
     components/            AppShell, SVG icons, TicketModal, SourceInspector
-    lib/                   Typed API client & SSE streaming parser
+    lib/                   Typed API client, SSE streaming parser, auth & tenant manager
 data/                      Sample document (txt & pdf), gold questions, seed orders
 docs/                      Comprehensive product, architecture, engineering & SRE docs
   operations/              OBSERVABILITY.md, INCIDENT_RESPONSE.md, BACKUP_AND_RESTORE.md
@@ -161,6 +162,7 @@ This automatically provisions PostgreSQL with `pgvector`, runs database migratio
 ## 6. Security & Hardening Controls
 
 1. **Authentication & Multi-Tenant Isolation:**
+   - **Dedicated Frontend Auth Page (`/login`):** Provides a production-grade credential manager matching the dark aesthetic. Allows operators and reviewers to configure credentials, Bearer tokens, or API keys, switch tenant IDs (`X-Owner-Id`), verify connection status via `GET /api/v1/auth/verify`, and seamlessly switch back to Reviewer Demo Mode with a single click.
    - **Local Mode (`AUTH_REQUIRED=false`):** Defaults to `DEMO_OWNER_ID`. Allows clean-machine testing without tokens while honoring `X-Owner-Id` for isolated multi-tenant testing.
    - **Production Mode (`AUTH_REQUIRED=true`):** Requires Bearer token (`Authorization: Bearer <token>`) or API key (`X-API-Key: <key>`). Missing credentials produce `401 UNAUTHORIZED`; invalid credentials produce `403 FORBIDDEN`.
    - **Database Scoping:** All chunks, embeddings, orders, and tickets are strictly filtered by `owner_id` at the database query layer.
@@ -206,11 +208,11 @@ This automatically provisions PostgreSQL with `pgvector`, runs database migratio
 
 DocuMind strictly enforces data privacy boundaries:
 - **Public Entrypoint (`/`):** Full OpenGraph, Twitter card, canonical metadata, and sitemap inclusion.
-- **Private Routes (`/documents`, `/documents/*`, `/evaluation`, `/api/*`):**
+- **Private Routes (`/documents`, `/documents/*`, `/evaluation`, `/login`, `/api/*`):**
   - Dynamically disallowed in `robots.txt` (`apps/web/app/robots.ts`).
   - Explicitly excluded from `sitemap.xml` (`apps/web/app/sitemap.ts`).
   - Marked with `robots: { index: false, follow: false }` in Next.js layouts.
-  - No user-uploaded document content, citations, or metadata ever enter public search indexes.
+  - No user-uploaded document content, citations, credentials, or metadata ever enter public search indexes.
 
 ---
 
@@ -327,4 +329,4 @@ npm run build
   - [Hardening Risk Register](docs/operations/RISKS.md)
 
 ---
-*DocuMind — Enterprise-Ready Document AI Assistant.*
+*DocuMind — Enterprise-Ready Document AI Assistant. Hardened and Production-Verified.*
