@@ -11,6 +11,7 @@ export default function robots(): MetadataRoute.Robots {
           "/documents",
           "/documents/*",
           "/evaluation",
+          "/login",
           "/api/*",
           "/health",
           "/ready",

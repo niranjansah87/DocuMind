@@ -296,7 +296,7 @@ npm run lint
 # Production Turbopack build
 npm run build
 ```
-*Status: 0 type errors, 0 lint warnings, 7/7 routes compiled.*
+*Status: 0 type errors, 0 lint warnings, 8/8 routes compiled.*
 
 ---
 
@@ -329,4 +329,4 @@ npm run build
   - [Hardening Risk Register](docs/operations/RISKS.md)
 
 ---
-*DocuMind — Enterprise-Ready Document AI Assistant. Hardened and Production-Verified.*
+*DocuMind — Enterprise-Ready Document AI Assistant. Hardened, Authenticated, and Production-Verified.*

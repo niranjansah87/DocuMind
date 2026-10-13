@@ -96,6 +96,7 @@ clearly state any demo-only shortcuts.
 ## 6. Authentication and Multi-Tenant Isolation (Implemented)
 
 DocuMind supports dual-mode operation for local evaluation and production deployment:
+- **Dedicated Frontend Auth Page (`/login`):** An intuitive credentials manager allowing operators and reviewers to input an API Key / Bearer token, switch tenant scopes (`X-Owner-Id`), verify credentials via `GET /api/v1/auth/verify`, and seamlessly switch back to Reviewer Demo Mode with a single click. The client automatically attaches `Authorization: Bearer <token>` and `X-Owner-Id: <tenant>` across all fetch and SSE requests via `apps/web/lib/auth.ts`.
 - **Local / Reviewer Mode (`AUTH_REQUIRED=false`):** Defaults to `DEMO_OWNER_ID` (`00000000-0000-0000-0000-000000000001`), allowing clean-machine testing without pre-configured tokens. Honors `X-Owner-Id` or `X-User-Id` request headers for isolated multi-tenant testing.
 - **Production Mode (`AUTH_REQUIRED=true`):** Enforces bearer token (`Authorization: Bearer <token>`) or API key (`X-API-Key: <key>`) authentication. Unauthenticated requests are rejected with `401 UNAUTHORIZED`; invalid credentials yield `403 FORBIDDEN`.
 - **Database & Vector Isolation:** All document chunks, embeddings, order records, and tickets are strictly filtered by `owner_id` at the SQL query layer before context reaches the LLM.

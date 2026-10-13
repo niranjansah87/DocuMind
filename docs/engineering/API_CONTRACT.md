@@ -312,6 +312,18 @@ Returns runtime workspace settings and model configuration.
 }
 ```
 
+### `GET /api/v1/auth/verify`
+Validates authentication credentials and returns current tenant scope and auth requirement mode.
+
+**Response (200 OK):**
+```json
+{
+  "authenticated": true,
+  "owner_id": "00000000-0000-0000-0000-000000000001",
+  "auth_required": false
+}
+```
+
 ### `GET /api/v1/evaluation`
 Retrieves benchmark evaluation specifications and 15 gold evaluation questions.
 
