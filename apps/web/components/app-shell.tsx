@@ -27,7 +27,7 @@ const navItems = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [tenantLabel, setTenantLabel] = useState<string>("Reviewer Scope");
+  const [tenantLabel, setTenantLabel] = useState<string>("Local Workspace");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
 
@@ -50,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const updateLabel = () => {
       const tid = getTenantId();
       const token = getAuthToken();
-      let next = "Reviewer Scope";
+      let next = "Local Workspace";
       if (tid && tid !== "00000000-0000-0000-0000-000000000001") {
         next = `Tenant ${tid.slice(0, 8)}`;
       } else if (token) {

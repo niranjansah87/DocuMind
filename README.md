@@ -162,10 +162,10 @@ This automatically provisions PostgreSQL with `pgvector`, runs database migratio
 ## 6. Security & Hardening Controls
 
 1. **Authentication & Multi-Tenant Isolation:**
-   - **Dedicated Frontend Auth Page (`/login`):** Provides a production-grade credential manager matching the dark aesthetic. Allows operators and reviewers to configure credentials, Bearer tokens, or API keys, switch tenant IDs (`X-Owner-Id`), verify connection status via `GET /api/v1/auth/verify`, and seamlessly switch back to Reviewer Demo Mode with a single click.
+   - **Dedicated Frontend Auth Page (`/login`):** Provides a production-grade credential manager matching the dark aesthetic. Operators can configure Bearer tokens or API keys, select tenant IDs (`X-Owner-Id`), and verify credentials via `GET /api/v1/auth/verify`.
    - **Credential-Bound Tenant Identity:** Tenant identity is strictly derived from the verified credential (`TENANT_API_KEYS` dictionary or `DEFAULT_TENANT_ID`). Any attempt by an authenticated client to pass a mismatched `X-Owner-Id` or `X-User-Id` is rejected with `403 FORBIDDEN` to prevent tenant impersonation.
    - **Production Mode (`AUTH_REQUIRED=true`):** Requires Bearer token (`Authorization: Bearer <token>`) or API key (`X-API-Key: <key>`). Missing credentials produce `401 UNAUTHORIZED`; invalid credentials produce `403 FORBIDDEN`. Startup validation strictly blocks launch if placeholder keys or default passwords are used in production.
-   - **Local Mode (`AUTH_REQUIRED=false`):** Defaults to `DEMO_OWNER_ID`. Allows clean-machine testing without tokens while honoring `X-Owner-Id` for isolated multi-tenant testing in development.
+   - **Local Mode (`AUTH_REQUIRED=false`):** Uses a fixed local owner scope. Allows clean-machine testing without tokens while honoring `X-Owner-Id` for isolated multi-tenant testing in development.
    - **Database Scoping:** All chunks, embeddings, orders, and tickets are strictly filtered by `owner_id` at the database query layer.
 2. **Sliding-Window Rate Limiting & Request Trust:**
    - In-memory rate limiter protects expensive operations with proxy-trust verification (only inspects `X-Forwarded-For` from `trusted_proxies` to prevent header spoofing):

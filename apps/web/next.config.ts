@@ -39,6 +39,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: path.join(process.cwd(), "../.."),
   turbopack: { root: path.join(process.cwd(), "../..") },
+  images: {
+    unoptimized: true,
+  },
   async headers() {
     return [
       {
