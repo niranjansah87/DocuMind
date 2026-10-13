@@ -108,3 +108,4 @@ When writing code for DocuMind, you must adhere to the repository invariants:
 2. Make your focused changes and write corresponding tests.
 3. Verify all backend and frontend quality gates pass locally.
 4. Push your branch and open a Pull Request describing your changes, motivation, and test coverage.
+

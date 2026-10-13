@@ -9,12 +9,16 @@ ROOT_ENV = Path(__file__).resolve().parents[4] / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=(ROOT_ENV, ".env"), extra="ignore", case_sensitive=False)
+    model_config = SettingsConfigDict(
+        env_file=(ROOT_ENV, ".env"), extra="ignore", case_sensitive=False
+    )
 
     app_env: str = "development"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
-    database_url: str = "postgresql+asyncpg://documind:documind-local-only@localhost:5432/documind"
+    database_url: str = (
+        "postgresql+asyncpg://documind:documind-local-only@localhost:5432/documind"
+    )
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
@@ -51,9 +55,13 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_rag_settings(self) -> "Settings":
         if self.chunk_overlap_tokens >= self.chunk_size_tokens:
-            raise ValueError("CHUNK_OVERLAP_TOKENS must be smaller than CHUNK_SIZE_TOKENS")
+            raise ValueError(
+                "CHUNK_OVERLAP_TOKENS must be smaller than CHUNK_SIZE_TOKENS"
+            )
         if self.embedding_dimensions != 1536:
-            raise ValueError("EMBEDDING_DIMENSIONS must match the migration's 1536 dimensions")
+            raise ValueError(
+                "EMBEDDING_DIMENSIONS must match the migration's 1536 dimensions"
+            )
         return self
 
 

@@ -20,13 +20,20 @@ class OpenAICompatibleProvider:
             "dimensions": self.settings.embedding_dimensions,
         }
         data = await self._post("/embeddings", payload)
-        vectors = [item["embedding"] for item in sorted(data["data"], key=lambda item: item["index"])]
-        if len(vectors) != len(texts) or any(len(vector) != self.settings.embedding_dimensions for vector in vectors):
+        vectors = [
+            item["embedding"]
+            for item in sorted(data["data"], key=lambda item: item["index"])
+        ]
+        if len(vectors) != len(texts) or any(
+            len(vector) != self.settings.embedding_dimensions for vector in vectors
+        ):
             raise ProviderUnavailableError()
         return vectors
 
     async def generate(self, messages: list[dict[str, str]]) -> str:
-        for model in filter(None, [self.settings.llm_model, self.settings.llm_fallback_model]):
+        for model in filter(
+            None, [self.settings.llm_model, self.settings.llm_fallback_model]
+        ):
             try:
                 data = await self._post(
                     "/chat/completions",
@@ -43,10 +50,14 @@ class OpenAICompatibleProvider:
                 continue
         raise ProviderUnavailableError()
 
-    async def stream_generate(self, messages: list[dict[str, str]]) -> AsyncIterator[str]:
+    async def stream_generate(
+        self, messages: list[dict[str, str]]
+    ) -> AsyncIterator[str]:
         if not self.settings.openai_api_key:
             raise ProviderUnavailableError()
-        for model in filter(None, [self.settings.llm_model, self.settings.llm_fallback_model]):
+        for model in filter(
+            None, [self.settings.llm_model, self.settings.llm_fallback_model]
+        ):
             for attempt in range(self.settings.provider_max_retries + 1):
                 emitted = False
                 try:
@@ -62,7 +73,9 @@ class OpenAICompatibleProvider:
             continue
         raise ProviderUnavailableError()
 
-    async def _stream_model(self, model: str, messages: list[dict[str, str]]) -> AsyncIterator[str]:
+    async def _stream_model(
+        self, model: str, messages: list[dict[str, str]]
+    ) -> AsyncIterator[str]:
         headers = {"Authorization": f"Bearer {self.settings.openai_api_key}"}
         payload = {
             "model": model,
@@ -77,7 +90,9 @@ class OpenAICompatibleProvider:
                 base_url=self.settings.openai_base_url.rstrip("/"),
                 headers=headers,
                 timeout=self.settings.provider_timeout_seconds,
-            ) as client, client.stream("POST", "/chat/completions", json=payload) as response:
+            ) as client, client.stream(
+                "POST", "/chat/completions", json=payload
+            ) as response:
                 if response.is_error:
                     raise ProviderUnavailableError()
                 async for line in response.aiter_lines():
@@ -88,7 +103,12 @@ class OpenAICompatibleProvider:
                         return
                     try:
                         delta = json.loads(data)["choices"][0]["delta"].get("content")
-                    except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
+                    except (
+                        json.JSONDecodeError,
+                        KeyError,
+                        IndexError,
+                        TypeError,
+                    ) as exc:
                         raise ProviderUnavailableError() from exc
                     if delta:
                         yield str(delta)
@@ -109,7 +129,9 @@ class OpenAICompatibleProvider:
                 ) as client:
                     response = await client.post(path, json=payload)
                 if response.status_code in {408, 429, 500, 502, 503, 504}:
-                    raise httpx.NetworkError("transient provider error", request=response.request)
+                    raise httpx.NetworkError(
+                        "transient provider error", request=response.request
+                    )
                 if response.is_error:
                     raise ProviderUnavailableError()
                 return cast(dict[str, Any], response.json())

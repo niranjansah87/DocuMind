@@ -26,3 +26,4 @@ ReadWritePaths=/var/www/documind/evaluation/results
 
 [Install]
 WantedBy=multi-user.target
+

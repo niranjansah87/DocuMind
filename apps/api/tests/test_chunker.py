@@ -32,9 +32,11 @@ def test_chunks_extract_sections_and_pages() -> None:
         "## Introduction\n\nWelcome to the customer support policy.\n\n"
         "## Returns and Refunds\n\nItems may be returned within 30 days.\n"
     )
-    pages = [(1, "## Introduction\n\nWelcome to the customer support policy."), (2, "## Returns and Refunds\n\nItems may be returned within 30 days.")]
+    pages = [
+        (1, "## Introduction\n\nWelcome to the customer support policy."),
+        (2, "## Returns and Refunds\n\nItems may be returned within 30 days."),
+    ]
     chunks = chunk_text(sample, 100, 20, pages=pages)
     assert len(chunks) >= 1
     assert chunks[0].section_title in ("Introduction", "Returns and Refunds")
     assert chunks[0].page_start is not None
-

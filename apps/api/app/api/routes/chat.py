@@ -27,7 +27,14 @@ async def stream_response(response: ChatResponse) -> AsyncIterator[str]:
     yield event("status", {"route": response.route, "stage": "answering"})
     yield event("token", {"text": response.answer})
     yield event("citations", [citation.model_dump() for citation in response.citations])
-    yield event("done", {"route": response.route, "abstained": response.abstained, "latency_ms": response.latency_ms})
+    yield event(
+        "done",
+        {
+            "route": response.route,
+            "abstained": response.abstained,
+            "latency_ms": response.latency_ms,
+        },
+    )
 
 
 @router.post("/chat", response_class=StreamingResponse)
@@ -39,13 +46,16 @@ async def chat(
     settings: Settings = Depends(get_settings),
 ) -> StreamingResponse:
     if len(payload.message) > settings.max_query_chars:
-        raise AppError("QUERY_TOO_LONG", "The question exceeds the configured length limit.", 422)
+        raise AppError(
+            "QUERY_TOO_LONG", "The question exceeds the configured length limit.", 422
+        )
     decision = route_message(payload.message)
     service = ChatService(DocumentRepository(session), OrderService(session), settings)
     if decision.route == "order" and decision.order_number:
         response = await service.answer_order(owner_id, decision.order_number)
         content = stream_response(response)
     else:
+
         async def rag_events() -> AsyncIterator[str]:
             try:
                 async for name, data in service.stream_rag(

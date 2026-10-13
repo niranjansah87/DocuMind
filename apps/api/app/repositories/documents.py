@@ -11,15 +11,21 @@ class DocumentRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def find_duplicate(self, owner_id: uuid.UUID, content_hash: str) -> Document | None:
+    async def find_duplicate(
+        self, owner_id: uuid.UUID, content_hash: str
+    ) -> Document | None:
         result = await self.session.execute(
-            select(Document).where(Document.owner_id == owner_id, Document.content_sha256 == content_hash)
+            select(Document).where(
+                Document.owner_id == owner_id, Document.content_sha256 == content_hash
+            )
         )
         return result.scalar_one_or_none()
 
     async def list_ready(self, owner_id: uuid.UUID) -> list[Document]:
         result = await self.session.execute(
-            select(Document).where(Document.owner_id == owner_id).order_by(Document.created_at.desc())
+            select(Document)
+            .where(Document.owner_id == owner_id)
+            .order_by(Document.created_at.desc())
         )
         return list(result.scalars())
 
@@ -29,13 +35,19 @@ class DocumentRepository:
         )
         return len(result.scalars().all())
 
-    async def get_owned(self, owner_id: uuid.UUID, document_id: uuid.UUID) -> Document | None:
+    async def get_owned(
+        self, owner_id: uuid.UUID, document_id: uuid.UUID
+    ) -> Document | None:
         result = await self.session.execute(
-            select(Document).where(Document.owner_id == owner_id, Document.id == document_id)
+            select(Document).where(
+                Document.owner_id == owner_id, Document.id == document_id
+            )
         )
         return result.scalar_one_or_none()
 
-    async def list_chunks(self, owner_id: uuid.UUID, document_id: uuid.UUID) -> list[DocumentChunk]:
+    async def list_chunks(
+        self, owner_id: uuid.UUID, document_id: uuid.UUID
+    ) -> list[DocumentChunk]:
         result = await self.session.execute(
             select(DocumentChunk)
             .join(Document, Document.id == DocumentChunk.document_id)
@@ -71,7 +83,10 @@ class DocumentRepository:
             .order_by(distance)
             .limit(limit)
         )
-        return [(chunk, document, float(score)) for chunk, document, score in (await self.session.execute(statement)).all()]
+        return [
+            (chunk, document, float(score))
+            for chunk, document, score in (await self.session.execute(statement)).all()
+        ]
 
     async def retrieve_hybrid(
         self,

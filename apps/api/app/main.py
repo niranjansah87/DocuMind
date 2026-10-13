@@ -13,11 +13,16 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 
 settings = get_settings()
-logging.basicConfig(level=settings.log_level.upper(), format="%(asctime)s %(levelname)s %(name)s %(message)s")
+logging.basicConfig(
+    level=settings.log_level.upper(),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 
-def error_response(request_id: str, code: str, message: str, status_code: int) -> JSONResponse:
+def error_response(
+    request_id: str, code: str, message: str, status_code: int
+) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
         content={"error": {"code": code, "message": message, "request_id": request_id}},
@@ -36,7 +41,9 @@ def create_app() -> FastAPI:
     )
 
     @application.middleware("http")
-    async def request_id_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    async def request_id_middleware(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         request.state.request_id = request_id
         response = await call_next(request)
@@ -45,21 +52,41 @@ def create_app() -> FastAPI:
 
     @application.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
-        return error_response(request.state.request_id, exc.code, exc.message, exc.status_code)
+        return error_response(
+            request.state.request_id, exc.code, exc.message, exc.status_code
+        )
 
     @application.exception_handler(RequestValidationError)
-    async def handle_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
-        logger.info("Request validation failed", extra={"request_id": request.state.request_id})
-        return error_response(request.state.request_id, "VALIDATION_ERROR", "The request is invalid.", 422)
+    async def handle_validation_error(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        logger.info(
+            "Request validation failed", extra={"request_id": request.state.request_id}
+        )
+        return error_response(
+            request.state.request_id, "VALIDATION_ERROR", "The request is invalid.", 422
+        )
 
     @application.exception_handler(HTTPException)
     async def handle_http_error(request: Request, exc: HTTPException) -> JSONResponse:
-        return error_response(request.state.request_id, "DEPENDENCY_UNAVAILABLE", str(exc.detail), exc.status_code)
+        return error_response(
+            request.state.request_id,
+            "DEPENDENCY_UNAVAILABLE",
+            str(exc.detail),
+            exc.status_code,
+        )
 
     @application.exception_handler(Exception)
     async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
-        logger.exception("Unhandled request error", extra={"request_id": request.state.request_id})
-        return error_response(request.state.request_id, "INTERNAL_ERROR", "An unexpected error occurred.", 500)
+        logger.exception(
+            "Unhandled request error", extra={"request_id": request.state.request_id}
+        )
+        return error_response(
+            request.state.request_id,
+            "INTERNAL_ERROR",
+            "An unexpected error occurred.",
+            500,
+        )
 
     application.include_router(health.router)
     application.include_router(documents.router, prefix="/api/v1")

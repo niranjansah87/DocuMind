@@ -36,7 +36,9 @@ def chunk_text(
     if not text.strip():
         return []
     if target_tokens <= 0 or overlap_tokens < 0 or overlap_tokens >= target_tokens:
-        raise ValueError("Chunk size must be positive and overlap smaller than chunk size")
+        raise ValueError(
+            "Chunk size must be positive and overlap smaller than chunk size"
+        )
     encoding = tiktoken.get_encoding("cl100k_base")
     tokens = encoding.encode(text)
     step = target_tokens - overlap_tokens
@@ -83,7 +85,9 @@ def chunk_text(
             if page_offsets and found_pos != -1:
                 end_pos = found_pos + len(chunk)
                 for p_start, p_end, p_num in page_offsets:
-                    if p_start <= found_pos <= p_end or (p_start <= found_pos and page_start is None):
+                    if p_start <= found_pos <= p_end or (
+                        p_start <= found_pos and page_start is None
+                    ):
                         page_start = p_num
                     if p_start <= end_pos <= p_end:
                         page_end = p_num
@@ -105,4 +109,3 @@ def chunk_text(
         if start + target_tokens >= len(tokens):
             break
     return chunks
-

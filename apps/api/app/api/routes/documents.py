@@ -29,7 +29,9 @@ async def upload_document(
     settings: Settings = Depends(get_settings),
 ) -> DocumentUploadResponse:
     content = await file.read(settings.max_upload_bytes + 1)
-    result = await IngestionService(session, settings).ingest(owner_id, file.filename, file.content_type, content)
+    result = await IngestionService(session, settings).ingest(
+        owner_id, file.filename, file.content_type, content
+    )
     response.status_code = 200 if result.duplicate else 201
     return DocumentUploadResponse(
         document_id=result.document.id,
@@ -112,7 +114,11 @@ async def download_document(
     chunks = await repository.list_chunks(owner_id, document_id)
     text_content = "\n\n".join(chunk.text for chunk in chunks)
     media_type = "text/plain; charset=utf-8"
-    filename = document.filename if document.filename.endswith(".txt") else f"{document.filename}.txt"
+    filename = (
+        document.filename
+        if document.filename.endswith(".txt")
+        else f"{document.filename}.txt"
+    )
     return Response(
         content=text_content.encode("utf-8"),
         media_type=media_type,

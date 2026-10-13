@@ -11,15 +11,24 @@ router = APIRouter(tags=["metadata"])
 
 def data_path(filename: str) -> Path:
     container_path = Path("/data") / filename
-    return container_path if container_path.exists() else Path(__file__).parents[5] / "data" / filename
+    return (
+        container_path
+        if container_path.exists()
+        else Path(__file__).parents[5] / "data" / filename
+    )
 
 
 def latest_evaluation_runs() -> list[dict[str, object]]:
-    roots = [Path("/evaluation/results"), Path(__file__).parents[5] / "evaluation" / "results"]
+    roots = [
+        Path("/evaluation/results"),
+        Path(__file__).parents[5] / "evaluation" / "results",
+    ]
     files = [file for root in roots if root.exists() for file in root.glob("*.json")]
     if not files:
         return []
-    payload = json.loads(max(files, key=lambda file: file.stat().st_mtime).read_text(encoding="utf-8"))
+    payload = json.loads(
+        max(files, key=lambda file: file.stat().st_mtime).read_text(encoding="utf-8")
+    )
     return list(payload.get("runs", []))
 
 
@@ -50,7 +59,12 @@ async def app_meta(settings: Settings = Depends(get_settings)) -> AppMetaRespons
 
 @router.get("/evaluation", response_model=EvaluationResponse)
 async def evaluation(settings: Settings = Depends(get_settings)) -> EvaluationResponse:
-    questions = [EvaluationQuestion.model_validate(item) for item in json.loads(data_path("gold_questions.json").read_text(encoding="utf-8"))]
+    questions = [
+        EvaluationQuestion.model_validate(item)
+        for item in json.loads(
+            data_path("gold_questions.json").read_text(encoding="utf-8")
+        )
+    ]
     runs = latest_evaluation_runs()
     return EvaluationResponse(
         dataset="sample_knowledge_document.txt",

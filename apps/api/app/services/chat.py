@@ -16,13 +16,20 @@ UNKNOWN_ANSWER = "I don't know based on the available documents."
 
 
 class ChatService:
-    def __init__(self, repository: DocumentRepository, order_service: OrderService, settings: Settings) -> None:
+    def __init__(
+        self,
+        repository: DocumentRepository,
+        order_service: OrderService,
+        settings: Settings,
+    ) -> None:
         self.repository = repository
         self.order_service = order_service
         self.settings = settings
         self.provider = OpenAICompatibleProvider(settings)
 
-    async def answer_rag(self, owner_id: uuid.UUID, message: str, document_ids: list[uuid.UUID]) -> ChatResponse:
+    async def answer_rag(
+        self, owner_id: uuid.UUID, message: str, document_ids: list[uuid.UUID]
+    ) -> ChatResponse:
         started = time.monotonic()
         relevant = await self._retrieve(owner_id, message, document_ids)
         if not relevant:
@@ -48,7 +55,9 @@ class ChatService:
         yield "status", {"route": "rag", "stage": "answering"}
         raw = ""
         emitted = ""
-        async for fragment in self.provider.stream_generate(self._messages(message, relevant)):
+        async for fragment in self.provider.stream_generate(
+            self._messages(message, relevant)
+        ):
             raw += fragment
             answer_prefix = self._answer_prefix(raw)
             if len(answer_prefix) > len(emitted):
@@ -69,7 +78,13 @@ class ChatService:
         query_vector = (await self.provider.embed([message]))[0]
         hybrid = getattr(self.repository, "retrieve_hybrid", None)
         candidates = (
-            await hybrid(owner_id, document_ids, message, query_vector, self.settings.retrieval_top_k)
+            await hybrid(
+                owner_id,
+                document_ids,
+                message,
+                query_vector,
+                self.settings.retrieval_top_k,
+            )
             if hybrid
             else await self.repository.retrieve(
                 owner_id, document_ids, query_vector, self.settings.retrieval_top_k
@@ -82,7 +97,9 @@ class ChatService:
         ]
 
     @staticmethod
-    def _messages(message: str, relevant: list[tuple[Any, Any, float]]) -> list[dict[str, str]]:
+    def _messages(
+        message: str, relevant: list[tuple[Any, Any, float]]
+    ) -> list[dict[str, str]]:
         context = "\n\n".join(
             f'<chunk id="{chunk.id}">{chunk.text}</chunk>' for chunk, _, _ in relevant
         )
@@ -107,7 +124,9 @@ class ChatService:
                 clean_raw = re.sub(r"\s*```$", "", clean_raw)
             payload = json.loads(clean_raw)
             answer = str(payload["answer"]).strip()
-            requested_ids = {uuid.UUID(value) for value in payload.get("citation_ids", [])}
+            requested_ids = {
+                uuid.UUID(value) for value in payload.get("citation_ids", [])
+            }
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
             raise ProviderUnavailableError() from exc
         allowed = {chunk.id: (chunk, document) for chunk, document, _ in relevant}
@@ -127,7 +146,13 @@ class ChatService:
             for chunk_id in requested_ids
             for chunk, document in [allowed[chunk_id]]
         ]
-        return ChatResponse(answer=answer, route="rag", abstained=False, citations=citations, latency_ms=self._elapsed(started))
+        return ChatResponse(
+            answer=answer,
+            route="rag",
+            abstained=False,
+            citations=citations,
+            latency_ms=self._elapsed(started),
+        )
 
     @staticmethod
     def _answer_prefix(raw: str) -> str:
@@ -136,7 +161,16 @@ class ChatService:
             return ""
         result: list[str] = []
         index = match.end()
-        escapes = {'"': '"', "\\": "\\", "/": "/", "b": "\b", "f": "\f", "n": "\n", "r": "\r", "t": "\t"}
+        escapes = {
+            '"': '"',
+            "\\": "\\",
+            "/": "/",
+            "b": "\b",
+            "f": "\f",
+            "n": "\n",
+            "r": "\r",
+            "t": "\t",
+        }
         while index < len(raw):
             character = raw[index]
             if character == '"':
@@ -163,7 +197,9 @@ class ChatService:
             index += 2
         return "".join(result)
 
-    async def answer_order(self, owner_id: uuid.UUID, order_number: str) -> ChatResponse:
+    async def answer_order(
+        self, owner_id: uuid.UUID, order_number: str
+    ) -> ChatResponse:
         started = time.monotonic()
         try:
             result = await self.order_service.get_status(owner_id, order_number)
@@ -175,10 +211,22 @@ class ChatService:
                 if result.found
                 else f"I couldn't find order {result.order_number}. Please check the order number."
             )
-        return ChatResponse(answer=answer, route="order_tool", abstained=False, citations=[], latency_ms=self._elapsed(started))
+        return ChatResponse(
+            answer=answer,
+            route="order_tool",
+            abstained=False,
+            citations=[],
+            latency_ms=self._elapsed(started),
+        )
 
     def _abstain(self, started: float) -> ChatResponse:
-        return ChatResponse(answer=UNKNOWN_ANSWER, route="rag", abstained=True, citations=[], latency_ms=self._elapsed(started))
+        return ChatResponse(
+            answer=UNKNOWN_ANSWER,
+            route="rag",
+            abstained=True,
+            citations=[],
+            latency_ms=self._elapsed(started),
+        )
 
     @staticmethod
     def _done(response: ChatResponse) -> dict[str, object]:

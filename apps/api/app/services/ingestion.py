@@ -29,12 +29,22 @@ class IngestionService:
         self.repository = DocumentRepository(session)
         self.provider = OpenAICompatibleProvider(settings)
 
-    async def ingest(self, owner_id: uuid.UUID, filename: str | None, content_type: str | None, content: bytes) -> IngestionResult:
-        upload = validate_upload(filename, content_type, content, self.settings.max_upload_bytes)
+    async def ingest(
+        self,
+        owner_id: uuid.UUID,
+        filename: str | None,
+        content_type: str | None,
+        content: bytes,
+    ) -> IngestionResult:
+        upload = validate_upload(
+            filename, content_type, content, self.settings.max_upload_bytes
+        )
         content_hash = hashlib.sha256(upload.content).hexdigest()
         existing = await self.repository.find_duplicate(owner_id, content_hash)
         if existing:
-            return IngestionResult(existing, True, await self.repository.count_chunks(existing.id))
+            return IngestionResult(
+                existing, True, await self.repository.count_chunks(existing.id)
+            )
         parsed = parse_document(upload)
         chunks = chunk_text(
             parsed.text,
@@ -43,7 +53,11 @@ class IngestionService:
             pages=parsed.pages,
         )
         if not chunks:
-            raise AppError("DOCUMENT_UNPARSEABLE", "The document contains no extractable text.", 422)
+            raise AppError(
+                "DOCUMENT_UNPARSEABLE",
+                "The document contains no extractable text.",
+                422,
+            )
         document = Document(
             owner_id=owner_id,
             filename=upload.filename,
@@ -61,7 +75,9 @@ class IngestionService:
             existing = await self.repository.find_duplicate(owner_id, content_hash)
             if not existing:
                 raise
-            return IngestionResult(existing, True, await self.repository.count_chunks(existing.id))
+            return IngestionResult(
+                existing, True, await self.repository.count_chunks(existing.id)
+            )
         vectors = await self.provider.embed([chunk.text for chunk in chunks])
         self.session.add_all(
             DocumentChunk(

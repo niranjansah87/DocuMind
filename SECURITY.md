@@ -47,3 +47,4 @@ DocuMind implements defense-in-depth principles across its full-stack RAG and to
 * **Single Domain Reverse Proxy:** The FastAPI backend is bound to `127.0.0.1:8000` (internal only) and never exposed directly to the public internet. All traffic routes through Nginx under `https://documind.niranjansah87.com.np/api/`.
 * **Zero Credential Exposure:** Provider credentials (`OPENAI_API_KEY`) and database credentials are kept exclusively server-side. The frontend client uses relative same-origin paths, ensuring no backend tokens or endpoints appear in browser network tabs.
 * **Security Headers:** Strict Transport Security (`HSTS`), `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, and restrictive Referrer and Permissions policies.
+

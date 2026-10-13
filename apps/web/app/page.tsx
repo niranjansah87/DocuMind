@@ -107,6 +107,8 @@ export default function WorkspacePage() {
     }
   };
 
+  const activeDoc = documents.find((d) => d.document_id === activeDocId) || documents[0];
+
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
