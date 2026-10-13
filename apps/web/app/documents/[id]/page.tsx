@@ -4,14 +4,16 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
+import { toast } from "sonner";
 import { Icon } from "@/components/icons";
-import { deleteDocument, getDocument } from "@/lib/api";
-import type { DocumentDetail } from "@/lib/types";
+import { deleteDocument, getAppMeta, getDocument } from "@/lib/api";
+import type { AppMeta, DocumentDetail } from "@/lib/types";
 
 export default function DocumentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [document, setDocument] = useState<DocumentDetail | null>(null);
+  const [meta, setMeta] = useState<AppMeta | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"preview" | "extracted" | "chunks">("preview");
   const [activeInspectorTab, setActiveInspectorTab] = useState<"details" | "chunks" | "related">("details");
@@ -22,10 +24,11 @@ export default function DocumentDetailPage() {
   useEffect(() => {
     if (!id) return;
     let isMounted = true;
-    getDocument(id)
-      .then((doc) => {
+    Promise.all([getDocument(id), getAppMeta()])
+      .then(([doc, appMeta]) => {
         if (!isMounted) return;
         setDocument(doc);
+        setMeta(appMeta);
         setLoading(false);
       })
       .catch((err) => {
@@ -40,16 +43,17 @@ export default function DocumentDetailPage() {
 
   const handleDelete = async () => {
     if (!document) return;
-    if (!window.confirm(`Delete ${document.filename}?`)) return;
+    if (!window.confirm(`Delete "${document.filename}"? This cannot be undone.`)) return;
     try {
       await deleteDocument(document.document_id);
+      toast.success(`"${document.filename}" deleted successfully.`);
       router.push("/documents");
-    } catch {
-      router.push("/documents");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed.");
     }
   };
 
-  const totalPages = document?.page_count || 12;
+  const totalPages = document?.page_count || 1;
 
   const handleDownload = () => {
     if (!document) return;
@@ -314,10 +318,16 @@ export default function DocumentDetailPage() {
 
             {activeTab === "extracted" && (
               <div className="extracted-text-view">
-                <pre className="extracted-pre-content">
-                  {document?.chunks.map((c) => c.text).join("\n\n---\n\n") ||
-                    "Sample customer support policy text extracted from uploaded file..."}
-                </pre>
+                {document?.chunks && document.chunks.length > 0 ? (
+                  <pre className="extracted-pre-content">
+                    {document.chunks.map((c) => c.text).join("\n\n---\n\n")}
+                  </pre>
+                ) : (
+                  <div className="viewer-empty-state">
+                    <Icon name="file" size={24} />
+                    <p>No extracted text available for this document.</p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -339,7 +349,7 @@ export default function DocumentDetailPage() {
           </div>
         </section>
 
-        {/* Right Section: Document Inspector matching documind_documents_details_page.png */}
+        {/* Right Section: Document Inspector */}
         <aside className="detail-inspector-pane">
           {/* Tabs */}
           <div className="inspector-tabs-row">
@@ -382,7 +392,7 @@ export default function DocumentDetailPage() {
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">Uploaded by</span>
-                  <span className="kv-value">Niranjan Sah</span>
+                  <span className="kv-value">{meta?.scope_label ?? meta?.workspace_name ?? "Workspace"}</span>
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">Upload date</span>
@@ -413,53 +423,55 @@ export default function DocumentDetailPage() {
             <div className="inspector-group-card">
               <h4 className="group-heading">Processing Pipeline</h4>
               <div className="pipeline-timeline">
-                <div className="pipeline-step">
-                  <Icon name="check-circle" size={17} className="timeline-icon green" />
-                  <span className="step-name">File uploaded</span>
-                  <span className="step-time">10:24 AM</span>
-                </div>
-                <div className="pipeline-step">
-                  <Icon name="check-circle" size={17} className="timeline-icon green" />
-                  <span className="step-name">Text extracted</span>
-                  <span className="step-time">10:24 AM</span>
-                </div>
-                <div className="pipeline-step">
-                  <Icon name="check-circle" size={17} className="timeline-icon green" />
-                  <span className="step-name">Split into chunks</span>
-                  <span className="step-time">10:24 AM</span>
-                </div>
-                <div className="pipeline-step">
-                  <Icon name="check-circle" size={17} className="timeline-icon green" />
-                  <span className="step-name">Embeddings generated</span>
-                  <span className="step-time">10:25 AM</span>
-                </div>
-                <div className="pipeline-step">
-                  <Icon name="check-circle" size={17} className="timeline-icon green" />
-                  <span className="step-name">Indexed in database</span>
-                  <span className="step-time">10:25 AM</span>
-                </div>
+                {[
+                  { label: "File uploaded", done: true },
+                  { label: "Text extracted", done: document?.status !== "processing" },
+                  { label: "Split into chunks", done: document?.status === "ready" || document?.status === "failed" },
+                  { label: "Embeddings generated", done: document?.status === "ready" },
+                  { label: "Indexed in database", done: document?.status === "ready" },
+                ].map((step) => (
+                  <div className="pipeline-step" key={step.label}>
+                    <Icon
+                      name={step.done ? "check-circle" : "alert-circle"}
+                      size={17}
+                      className={`timeline-icon ${step.done ? "green" : "muted"}`}
+                    />
+                    <span className="step-name">{step.label}</span>
+                    <span className="step-time">
+                      {step.done ? uploadDateStr : "Pending"}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Chunking Configuration */}
+            {/* Chunking Configuration — from live AppMeta */}
             <div className="inspector-group-card">
               <h4 className="group-heading">Chunking Configuration</h4>
               <div className="kv-grid">
                 <div className="kv-row">
                   <span className="kv-label">Chunk size</span>
-                  <span className="kv-value">300 tokens</span>
+                  <span className="kv-value">
+                    {document?.chunk_size_tokens ?? meta?.chunk_size_tokens ?? "—"} tokens
+                  </span>
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">Overlap</span>
-                  <span className="kv-value">50 tokens</span>
+                  <span className="kv-value">
+                    {document?.overlap_tokens ?? meta?.chunk_overlap_tokens ?? "—"} tokens
+                  </span>
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">Embedding model</span>
-                  <span className="kv-value">text-embedding-3-small</span>
+                  <span className="kv-value">{meta?.embedding_model ?? "—"}</span>
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">Vector dimension</span>
-                  <span className="kv-value">1,536</span>
+                  <span className="kv-value">
+                    {meta?.embedding_dimensions != null
+                      ? meta.embedding_dimensions.toLocaleString()
+                      : "—"}
+                  </span>
                 </div>
               </div>
             </div>

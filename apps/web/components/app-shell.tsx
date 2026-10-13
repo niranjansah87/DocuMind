@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import { toast } from "sonner";
 import { Icon } from "./icons";
 import { getAppMeta } from "@/lib/api";
@@ -16,18 +16,9 @@ const navItems = [
   { href: "/evaluation", label: "Evaluation", icon: "evaluation" as const, badge: "Beta" },
 ];
 
-const recentConversations = [
-  { id: "refund-policy", title: "Refund policy details", time: "2m ago", prompt: "What is the refund policy?" },
-  { id: "order-status", title: "Order status ORD-1001", time: "12m ago", prompt: "What is the status of order ORD-1001?" },
-  { id: "support-ticket", title: "Create support ticket", time: "1h ago", prompt: "I need to open a support ticket for my delayed shipment" },
-  { id: "warranty-info", title: "Warranty information", time: "3h ago", prompt: "What is covered by warranty?" },
-  { id: "pricing-plans", title: "Pricing and plans", time: "1d ago", prompt: "What payment methods are supported?" },
-];
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [activeRecent, setActiveRecent] = useState<string>("refund-policy");
   const [tenantLabel, setTenantLabel] = useState<string>("Reviewer Scope");
 
   useEffect(() => {
@@ -106,12 +97,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     window.dispatchEvent(new CustomEvent("documind:new-chat"));
   };
 
-  const handleSelectRecent = (item: (typeof recentConversations)[number]) => {
-    setActiveRecent(item.id);
-    router.push(`/?prompt=${encodeURIComponent(item.prompt)}`);
-    window.dispatchEvent(new CustomEvent("documind:load-prompt", { detail: item.prompt }));
-  };
-
   if (pathname === "/login") {
     return <>{children}</>;
   }
@@ -185,51 +170,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* Recent Conversations */}
+        {/* Recent Conversations — empty state (no persistent chat history in this demo) */}
         <div className="recent-conversations-section">
           <div className="recent-heading">RECENT CONVERSATIONS</div>
-          <div className="recent-list">
-            <AnimatePresence initial={false}>
-              {recentConversations.map((item, index) => {
-                const isSelected = pathname === "/" && activeRecent === item.id;
-                return (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: index * 0.04, ease: [0.23, 1, 0.32, 1] }}
-                    whileHover={{ x: 3 }}
-                    whileTap={{ scale: 0.98 }}
-                    className={`recent-item ${isSelected ? "selected" : ""}`}
-                    onClick={() => handleSelectRecent(item)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        handleSelectRecent(item);
-                      }
-                    }}
-                  >
-                    <div className="recent-info">
-                      <span className="recent-title">{item.title}</span>
-                      <span className="recent-time">{item.time}</span>
-                    </div>
-                    {isSelected && (
-                      <button
-                        className="recent-menu-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
-                        aria-label="Conversation options"
-                      >
-                        <Icon name="more" size={14} />
-                      </button>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
+          <div className="recent-empty-state">
+            <Icon name="chat" size={16} />
+            <span>Start a new chat to begin.</span>
           </div>
         </div>
 

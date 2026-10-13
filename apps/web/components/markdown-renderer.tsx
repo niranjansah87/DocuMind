@@ -13,6 +13,33 @@ interface MarkdownRendererProps {
   onCitationClick?: (citation: Citation) => void;
 }
 
+/**
+ * Detects Python list repr like ['item1', 'item2'] or ["item1", "item2"]
+ * and converts it to proper Markdown bullet list.
+ * This is a frontend safety net for LLM output that slips through the prompt.
+ */
+function normalizePythonListRepr(text: string): string {
+  const trimmed = text.trim();
+  // Match a top-level Python list: starts with [ ends with ] and contains quoted strings
+  const pythonListPattern = /^\[(?:\s*(?:'[^']*'|"[^"]*")\s*,?\s*)+\]$/s;
+  if (!pythonListPattern.test(trimmed)) return text;
+  try {
+    // Extract all quoted strings from the list
+    const itemPattern = /(?:'([^']*)'|"([^"]*)")/g;
+    const items: string[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = itemPattern.exec(trimmed)) !== null) {
+      items.push(match[1] ?? match[2] ?? "");
+    }
+    if (items.length > 0) {
+      return items.map((item) => `- ${item}`).join("\n");
+    }
+  } catch {
+    // fall through
+  }
+  return text;
+}
+
 function CodeBlock({
   children,
   className,
@@ -58,6 +85,8 @@ export function MarkdownRenderer({
   citations = [],
   onCitationClick,
 }: MarkdownRendererProps) {
+  const normalizedContent = normalizePythonListRepr(content);
+
   return (
     <div className="markdown-prose-container">
       <div className="markdown-prose-body">
@@ -118,9 +147,12 @@ export function MarkdownRenderer({
             hr() {
               return <hr className="md-hr" />;
             },
+            p({ children }) {
+              return <p className="md-p">{children}</p>;
+            },
           }}
         >
-          {content}
+          {normalizedContent}
         </ReactMarkdown>
         {isStreaming && (
           <span className="chatgpt-streaming-cursor" aria-hidden="true" />
@@ -153,4 +185,3 @@ export function MarkdownRenderer({
     </div>
   );
 }
-
