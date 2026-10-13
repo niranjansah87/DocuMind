@@ -13,7 +13,6 @@
     "test": "cd apps/api && uv run pytest -q && pnpm --filter documind-web typecheck"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.2.5"
   }
 }
-
