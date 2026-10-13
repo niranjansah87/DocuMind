@@ -77,7 +77,10 @@ export default function LoginPage() {
       }
 
       // Verify credentials with backend
-      await verifyAuth();
+      const verified = await verifyAuth();
+      if (!tenantId.trim() && verified?.owner_id) {
+        setTenantId(verified.owner_id, remember);
+      }
       router.push("/");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Authentication failed. Please verify your credentials.";

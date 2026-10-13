@@ -217,7 +217,19 @@ export default function DocumentsPage() {
         {error && (
           <div className="documents-error-banner">
             <Icon name="alert-circle" size={16} />
-            <span>{error}</span>
+            <span className="flex-1">{error}</span>
+            {(error.toLowerCase().includes("credential") ||
+              error.toLowerCase().includes("unauthorized") ||
+              error.toLowerCase().includes("forbidden") ||
+              error.toLowerCase().includes("401") ||
+              error.toLowerCase().includes("403")) && (
+              <Link
+                href="/login"
+                className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-colors ml-2"
+              >
+                Authenticate →
+              </Link>
+            )}
             <button onClick={() => setError("")}>
               <Icon name="close" size={14} />
             </button>

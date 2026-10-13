@@ -50,9 +50,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       setTenantLabel((prev) => (prev !== next ? next : prev));
     };
 
+    updateLabel();
     window.addEventListener("storage", updateLabel);
-    return () => window.removeEventListener("storage", updateLabel);
-  }, []);
+    window.addEventListener("documind:auth-changed", updateLabel);
+    return () => {
+      window.removeEventListener("storage", updateLabel);
+      window.removeEventListener("documind:auth-changed", updateLabel);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
