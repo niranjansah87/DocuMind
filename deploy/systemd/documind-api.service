@@ -1,0 +1,28 @@
+[Unit]
+Description=DocuMind FastAPI Backend Service
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=documind
+Group=documind
+WorkingDirectory=/var/www/documind/apps/api
+EnvironmentFile=/var/www/documind/.env
+Environment="PATH=/var/www/documind/apps/api/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/var/www/documind/apps/api/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=documind-api
+
+# Security sandboxing
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/www/documind/evaluation/results
+
+[Install]
+WantedBy=multi-user.target
