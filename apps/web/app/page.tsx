@@ -238,6 +238,15 @@ export default function WorkspacePage() {
     streamAnimRef.current = requestAnimationFrame(runStreamTick);
 
     try {
+      // Gather previous conversation turns (excluding the newly appended prompt and placeholder)
+      const chatHistory = messages
+        .filter((m) => m.text.trim().length > 0)
+        .slice(-6)
+        .map((m) => ({
+          role: m.role === "user" ? "user" : "assistant",
+          content: m.text.slice(0, 1500),
+        }));
+
       const result = await streamChat(
         text,
         docIds,
@@ -247,6 +256,7 @@ export default function WorkspacePage() {
         controller.current.signal,
         (next) =>
           setStage(next === "retrieving" ? "Searching documents" : "Formulating answer"),
+        chatHistory,
       );
 
       buf.done = true;

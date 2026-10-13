@@ -128,28 +128,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <aside className="sidebar">
         {/* Top brand header */}
         <div className="sidebar-header">
-          <Link className="sidebar-brand" href="/" aria-label="DocuMind Home">
-            <Image
-              src="/logo.png"
-              alt="DocuMind"
-              width={132}
-              height={36}
-              priority
-              style={{ objectFit: "contain" }}
-            />
+          <Link className="sidebar-brand" href="/" aria-label="DocuMind home">
+            <Image src="/logo_mark.png" alt="" width={34} height={34} priority />
+            <span className="brand-wordmark">DocuMind</span>
           </Link>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="sidebar-collapse-btn"
-            aria-label="Collapse sidebar"
-            title="Collapse sidebar"
-          >
-            <Icon name="chevron-up" size={16} />
-          </motion.button>
+          <span className="brand-edition">RAG</span>
         </div>
 
         {/* New Chat Button */}
@@ -198,7 +187,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Recent Conversations */}
         <div className="recent-conversations-section">
           <div className="flex items-center justify-between px-2 pb-2">
-            <span className="recent-heading p-0">RECENT CONVERSATIONS</span>
+              <span className="recent-heading p-0">Recent conversations</span>
             {conversations.length > 0 && (
               <span className="text-[10px] text-slate-400 font-mono font-medium">
                 {conversations.length}
@@ -287,7 +276,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="app-content">{children}</div>
+      <motion.div
+        id="main-content"
+        className="app-content"
+        key={pathname}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {children}
+      </motion.div>
+
+      <nav className="mobile-nav" aria-label="Mobile navigation">
+        {navItems.map((item) => {
+          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          return (
+            <Link key={item.href} href={item.href} className={active ? "active" : ""}>
+              <Icon name={item.icon} size={19} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }

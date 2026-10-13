@@ -64,7 +64,10 @@ async def chat(
         async def rag_events() -> AsyncIterator[str]:
             try:
                 async for name, data in service.stream_rag(
-                    owner_id, payload.message, payload.document_ids
+                    owner_id,
+                    payload.message,
+                    payload.document_ids,
+                    history=payload.history,
                 ):
                     if await request.is_disconnected():
                         return

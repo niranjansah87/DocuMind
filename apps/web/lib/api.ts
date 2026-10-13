@@ -163,6 +163,7 @@ export async function streamChat(
   onToken: (token: string) => void,
   signal: AbortSignal,
   onStatus?: (stage: string) => void,
+  history?: Array<{ role: string; content: string }>,
 ): Promise<StreamResult> {
   const response = await fetch(`${API_BASE_URL}/api/v1/chat`, {
     method: "POST",
@@ -170,7 +171,11 @@ export async function streamChat(
       "Content-Type": "application/json",
       ...getAuthHeaders(),
     },
-    body: JSON.stringify({ message, document_ids: documentIds }),
+    body: JSON.stringify({
+      message,
+      document_ids: documentIds,
+      history: history || [],
+    }),
     signal,
   });
   if (!response.ok) throw new Error(await errorMessage(response));
