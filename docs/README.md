@@ -5,7 +5,7 @@ assignment: a document Q&A assistant using retrieval-augmented
 generation (RAG) and a bounded tool-using agent.
 
 > **Status:** Core application and benchmark evaluation are implemented. The current
-> Compose file requires an external PostgreSQL/pgvector instance, so the assignment's
+> Compose file keeps its database service disabled because PostgreSQL/pgvector is deployed externally, so the assignment's
 > clean-clone, one-command acceptance criterion remains pending.
 
 ## Start here
@@ -42,12 +42,12 @@ generation (RAG) and a bounded tool-using agent.
 -   [x] Primary-model failure can use configured fallback model.
 -   [x] Prompt-injection defense treats retrieved text as untrusted data.
 -   [x] Multi-page frontend supports 4 reference designs from `design/` (workspace, documents, doc-detail, evaluation).
--   [ ] `docker compose up --build` starts frontend, API and database. **Pending:** the checked-in Compose file currently defines only API and web services.
+-   [ ] `docker compose up --build` starts frontend, API and database. **Pending:** the database reference service is commented out because production uses an external deployment.
 -   [x] `.env.example`, sample document, seed data and automated tests.
 -   [x] 15 gold questions run against 300-token and 800-token chunks.
 -   [x] README reports correct-chunk retrieval, context-supported answers and average response time.
 -   [x] README states the selected chunk size and evidence for the choice.
--   [ ] Clean-machine walkthrough succeeds with only `.env.example`, an API key, and Docker Compose. **Pending:** Compose-managed database provisioning.
+-   [ ] Clean-machine walkthrough succeeds with only `.env.example`, an API key, and Docker Compose. **Pending:** enable the commented local database blocks or provide the external database.
 
 ## Scope note
 

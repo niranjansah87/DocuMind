@@ -27,7 +27,7 @@ The script performs:
 5. Pruning of dumps older than 14 days.
 
 > [!NOTE]
-> Operational boundary: These scripts expect a running PostgreSQL container. Because the current Compose file has no `db` service, set `DB_CONTAINER` to the real container name. The scripts were not revalidated during the latest documentation audit. Production scheduling and offsite replication remain external infrastructure tasks.
+> Operational boundary: PostgreSQL is deployed externally in production, and the Compose `db` reference service is commented out. These scripts require a containerized database; set `DB_CONTAINER` to its real container name. The scripts were not revalidated during the latest documentation audit. Production scheduling and offsite replication remain external infrastructure tasks.
 
 ---
 

@@ -82,7 +82,7 @@
 4.  **Scope:** development uses a fixed owner; production can bind API credentials to tenant UUIDs.
 5.  **Streaming and writes:** SSE chat streaming; duplicate uploads return the existing document; ticket writes require an expiring, single-use confirmation.
 6.  **Evaluation:** one recorded pass per question/configuration is preserved in `evaluation/results/latest.json`; repeated trials remain future work.
-7.  **Open blocker:** the current Compose file does not provision PostgreSQL, so clean-machine one-command startup does not meet the assignment requirement.
+7.  **Open blocker:** PostgreSQL is externally deployed and its Compose reference service is commented out, so clean-machine one-command startup does not meet the assignment requirement until the local blocks are enabled.
 
 ## 3. Recommended tradeoffs to explain in interview
 

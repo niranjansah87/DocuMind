@@ -1,10 +1,30 @@
 services:
+  # PostgreSQL is deployed and managed externally in production.
+  # This reference service is intentionally disabled; uncomment it, the
+  # postgres_data volume below, and the API depends_on block for local use.
+  # db:
+  #   image: pgvector/pgvector:pg16
+  #   environment:
+  #     POSTGRES_DB: ${POSTGRES_DB:-documind}
+  #     POSTGRES_USER: ${POSTGRES_USER:-documind}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-documind-local-only}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-documind} -d ${POSTGRES_DB:-documind}"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 20
+
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     env_file:
       - .env.production
+    # depends_on:
+    #   db:
+    #     condition: service_healthy
     ports:
       - "127.0.0.1:${API_PORT:-8888}:8888"
     healthcheck:
@@ -28,3 +48,6 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:${WEB_PORT:-7777}:7777"
+
+# volumes:
+#   postgres_data:

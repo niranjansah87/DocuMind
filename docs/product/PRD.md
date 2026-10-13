@@ -6,7 +6,7 @@
 **Primary stakeholder:** VanarX Tech take-home assignment reviewer  
 **Intended readers:** Candidate/engineer, coding agents, reviewers, future maintainers  
 **Source of mandatory requirements:** `vanarX_candidate_task.docx` supplied for this assignment  
-**Implementation status:** Core application and benchmark implemented. FR-026 (database, API and frontend from one Compose command on a clean clone) remains pending because the current Compose file omits the database service. A cross-encoder reranker was not evaluated.
+**Implementation status:** Core application and benchmark implemented. PostgreSQL is deployed externally, and its Compose reference service is commented out; FR-026 therefore remains pending for a clean clone. A cross-encoder reranker was not evaluated.
 
 > **Interpretation rule:** “Required” means explicitly requested by the assignment. “Recommended” means a design choice proposed to make the system reliable. Open decisions must not be presented as implemented facts. Evaluation metrics must be measured, never fabricated.
 
@@ -436,4 +436,4 @@ The assignment is considered complete when:
 - SSE events are defined in the API contract; duplicate uploads return the existing document with `duplicate=true`.
 - The stored benchmark contains one run per question/configuration; repeated trials remain future work.
 - Output tokens, tool steps, timeouts and retries are bounded. Provider-reported monetary cost is not enforced.
-- Open blocker: add a Compose-managed PostgreSQL/pgvector service and re-run the clean-machine reviewer workflow.
+- Open blocker: enable the commented Compose PostgreSQL/pgvector service and re-run the clean-machine reviewer workflow.

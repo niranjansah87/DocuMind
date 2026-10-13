@@ -161,7 +161,7 @@ Open `http://localhost:7777`. The API listens on `http://localhost:8888`.
 
 ### 5.3 Docker Compose Deployment
 
-The checked-in Compose configuration is the deployment variant. It reads `.env.production` and expects `DATABASE_URL` to point to an existing PostgreSQL instance with pgvector:
+The checked-in Compose configuration is the production deployment variant. PostgreSQL/pgvector is deployed externally, so API and web are the only active Compose services. A disabled `db` reference block remains in `docker-compose.yml` for local use. Compose reads `.env.production`, and `DATABASE_URL` must point to the external database:
 
 ```bash
 cp .env.example .env.production
@@ -169,7 +169,7 @@ cp .env.example .env.production
 docker compose up --build
 ```
 
-> **Known assignment gap:** `docker-compose.yml` currently defines only `api` and `web`; it does not provision PostgreSQL. The assignment's clean-clone, one-command workflow is therefore pending. Until a `db` service is restored, reviewers must provide a reachable PostgreSQL instance with pgvector and configure `DATABASE_URL` in `.env.production`.
+> **Known assignment gap:** the `db` service is intentionally commented out because production PostgreSQL is deployed externally. The assignment's clean-clone, one-command workflow is therefore pending. Reviewers must either use a reachable PostgreSQL/pgvector instance or uncomment the documented `db`, `depends_on`, and volume blocks and set `DATABASE_URL` accordingly.
 
 ### 5.4 Reviewer Walkthrough
 

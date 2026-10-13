@@ -17,7 +17,7 @@
 **Symptoms:** Readiness probe returns HTTP 503 (`DATABASE_UNAVAILABLE`), `documind_database_healthy == 0`.
 
 **Triage Steps:**
-The current Compose file does not manage PostgreSQL. Use the database platform's native tooling or set `DB_CONTAINER` when PostgreSQL runs in a separate container.
+PostgreSQL is deployed externally in production; the Compose database service is only a commented reference. Use the database platform's native tooling or set `DB_CONTAINER` when PostgreSQL runs in a separate container.
 
 1. Check the configured database container:
    ```bash

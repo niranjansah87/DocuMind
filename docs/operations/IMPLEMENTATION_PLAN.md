@@ -2,7 +2,7 @@
 
 ## 1. Execution Strategy
 
-DocuMind implements the modular application, RAG pipeline, bounded tools, frontend routes, automated tests, and benchmark evaluation. The assignment-required clean-machine Compose workflow is not complete because the current Compose file does not provision PostgreSQL.
+DocuMind implements the modular application, RAG pipeline, bounded tools, frontend routes, automated tests, and benchmark evaluation. PostgreSQL is deployed externally in production; the reference Compose database service is retained but commented out. The assignment-required clean-machine Compose workflow remains pending while that service is disabled.
 
 ---
 
@@ -16,7 +16,7 @@ DocuMind implements the modular application, RAG pipeline, bounded tools, fronte
 ### Phase 1 - Scaffold and Infrastructure
 - [x] Monorepo structure: `apps/api` (FastAPI), `apps/web` (Next.js 16), `data/`, `evaluation/`.
 - [x] PostgreSQL with pgvector supported through Alembic migrations.
-- [ ] Docker Compose starts database, API, and web from a clean clone. Current Compose starts API and web only and requires an external database.
+- [ ] Docker Compose starts database, API, and web from a clean clone. The database service is present as a commented reference because production PostgreSQL is deployed externally.
 - [x] `.env.example` template with clear placeholders.
 - [x] Structured request IDs, standardized error envelope, and `/health`, `/ready` endpoints.
 
@@ -84,5 +84,5 @@ DocuMind implements the modular application, RAG pipeline, bounded tools, fronte
 | Frontend Design | Responsive workspace, documents, details and evaluation workflows | Implemented from the reference designs | Yes |
 | Automated Tests | Unit and integration coverage | 50 pytest tests at latest verification | Yes |
 | Static Analysis | Python (ruff, strict mypy), Web (tsc, eslint) | 0 errors across all checks | Yes |
-| Clean Compose startup | Database, API and web from one command | Database service missing from current Compose file | **No** |
+| Clean Compose startup | Database, API and web from one command | Database reference service is commented out for external production deployment | **No** |
 | Documentation | API contract, RAG, UX, evaluation, README | Audited against current repository state | Yes |
