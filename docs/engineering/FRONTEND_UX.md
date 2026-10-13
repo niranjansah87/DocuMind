@@ -90,15 +90,12 @@ All page layouts adhere to strict typographic hierarchy, responsive sidebars, cu
 ### 3.4 Evaluation Suite (`/evaluation`) - Matching `documind_evaluation_page.png`
 - **Benchmark Header:**
   - Title and comparative description.
-  - `Run Evaluation` action button with live progress indicator.
+  - Benchmark results loaded from `GET /api/v1/evaluation`.
+  - The current `Run Evaluation` control only animates a local status message; it does not launch a backend benchmark. Run `python -m app.evaluation --chunk-sizes 300 800` from `apps/api` to produce measurements.
 - **Selectors Bar:**
   - Document selector, Chunk size comparison toggles (`300 tokens` vs `800 tokens`), and Gold Questions selector.
 - **Dual-Metric Comparison Cards:**
-  - 4 cards comparing 300 vs 800 token configurations:
-    1. `Retrieval Accuracy`: 73% vs 87% (+14% improvement).
-    2. `Answer Correctness`: 67% vs 80% (+13% improvement).
-    3. `Response Time`: 2.8s vs 3.6s (+0.8s tradeoff).
-    4. `Context Redundancy`: 24% vs 11% (-13% reduction).
+  - **Known mismatch:** summary cards and charts are currently hardcoded to an older 73%/87% presentation and do not reflect `evaluation/results/latest.json`. The canonical hybrid runs achieved 15/15 evidence retrieval and 15/15 supported answers for both chunk sizes; mean latency was 1,794 ms for 300 tokens and 1,591 ms for 800 tokens.
 - **Interactive SVG Visualizations:**
   1. `Accuracy by Question Category`: Clustered bar chart comparing policy, eligibility, exceptions, and order lookup.
   2. `Response Time per Question`: Dual-line trend chart showing latency per question.

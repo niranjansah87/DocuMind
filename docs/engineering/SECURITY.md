@@ -98,7 +98,7 @@ clearly state any demo-only shortcuts.
 DocuMind supports dual-mode operation for local evaluation and production deployment:
 - **Dedicated Frontend Auth Page (`/login`):** A credentials manager allowing operators to input an API key or Bearer token, select a tenant scope (`X-Owner-Id`), and verify credentials via `GET /api/v1/auth/verify`. The client automatically attaches `Authorization: Bearer <token>` and `X-Owner-Id: <tenant>` across all fetch and SSE requests via `apps/web/lib/auth.ts`.
 - **Credential-Bound Tenant Identity:** Tenant identity is strictly derived from the verified credential (`TENANT_API_KEYS` dictionary or `DEFAULT_TENANT_ID`). Any attempt by an authenticated client to pass a mismatched `X-Owner-Id` or `X-User-Id` is rejected with `403 FORBIDDEN` to prevent tenant impersonation.
-- **Production Startup Validation:** When `APP_ENV=production`, `AUTH_REQUIRED` is forced to `true`, and startup aborts immediately if credentials or database passwords use insecure default placeholders.
+- **Production Startup Validation:** When `APP_ENV=production`, startup aborts unless `AUTH_REQUIRED=true`, a credential mapping is configured, and the database/API credentials do not use insecure defaults.
 - **Local Development Mode (`AUTH_REQUIRED=false`):** Uses the fixed local owner scope, allowing clean-machine testing without pre-configured tokens. Honors `X-Owner-Id` or `X-User-Id` request headers for isolated multi-tenant testing in development.
 - **Database & Vector Isolation:** All document chunks, embeddings, order records, and tickets are strictly filtered by `owner_id` at the SQL query layer before context reaches the LLM.
 

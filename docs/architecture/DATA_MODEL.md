@@ -12,9 +12,9 @@
 -   Use migrations for schema changes and seed scripts for repeatable
     demo data.
 
-## 2. Proposed entities
+## 2. Schema inventory
 
-### `users` (optional for a no-auth demo, recommended schema boundary)
+### `users` (not implemented)
 
 -   `id UUID PRIMARY KEY`
 -   `email TEXT UNIQUE` (if authentication is implemented)
@@ -23,7 +23,7 @@
 ### `documents`
 
 -   `id UUID PRIMARY KEY`
--   `owner_id UUID NULL/NOT NULL depending on auth mode`
+-   `owner_id UUID NOT NULL`
 -   `filename TEXT NOT NULL`
 -   `content_sha256 CHAR(64) NOT NULL`
 -   `mime_type TEXT NOT NULL`
@@ -45,7 +45,7 @@
 -   `section_title TEXT NULL`
 -   `page_start INTEGER NULL`
 -   `page_end INTEGER NULL`
--   `embedding VECTOR(<configured dimension>) NOT NULL`
+-   `embedding VECTOR(1536) NOT NULL`
 -   `embedding_model TEXT NOT NULL`
 -   `chunk_size_tokens INTEGER NOT NULL`
 -   `overlap_tokens INTEGER NOT NULL`
@@ -64,7 +64,7 @@ both chunk sizes.
 ### `orders`
 
 -   `id UUID PRIMARY KEY`
--   `owner_id UUID NULL/NOT NULL depending on auth mode`
+-   `owner_id UUID NOT NULL`
 -   `order_number TEXT NOT NULL`
 -   `status TEXT NOT NULL`
 -   `items JSONB NOT NULL DEFAULT '[]'`
@@ -75,7 +75,7 @@ both chunk sizes.
 ### `support_tickets`
 
 -   `id UUID PRIMARY KEY`
--   `owner_id UUID NULL/NOT NULL depending on auth mode`
+-   `owner_id UUID NOT NULL`
 -   `order_id UUID NULL REFERENCES orders(id)`
 -   `subject TEXT NOT NULL`
 -   `description TEXT NOT NULL`
@@ -87,7 +87,7 @@ both chunk sizes.
 ### `pending_actions`
 
 -   `id UUID PRIMARY KEY`
--   `owner_id UUID`
+-   `owner_id UUID NOT NULL`
 -   `action_type TEXT NOT NULL`
 -   `payload JSONB NOT NULL`
 -   `confirmation_token_hash TEXT NOT NULL`

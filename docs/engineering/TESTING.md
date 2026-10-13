@@ -14,7 +14,7 @@ All test suites run deterministically without requiring external network depende
   ```bash
   uv run --directory apps/api pytest
   ```
-  **Result:** 25 passed in 1.83s. Coverage includes chunk boundary calculation, overlap monotonicity, PDF/TXT parsing, citation validation, order tool lookup, ticket confirmation lifecycle, replay protection, and error envelopes.
+  **Latest recorded result:** 50 passed. Coverage includes chunk boundary calculation, overlap monotonicity, PDF/TXT parsing, citation validation, order tool lookup, ticket confirmation lifecycle, replay protection, authentication isolation, rate limiting, and error envelopes.
 
 - **Fast Code Quality & Linting (`ruff`):**
   ```bash
@@ -26,7 +26,7 @@ All test suites run deterministically without requiring external network depende
   ```bash
   uv run --directory apps/api mypy app tests
   ```
-  **Result:** Success: no issues found across 55 source files.
+  **Latest recorded result:** Success: no issues found across 63 source files.
 
 ### 2.2 Frontend Verification (Next.js 16 / TypeScript / ESLint)
 - **TypeScript Type Verification:**
@@ -45,14 +45,10 @@ All test suites run deterministically without requiring external network depende
   ```bash
   cd apps/web && npm run build
   ```
-  **Result:** Turbopack production compilation succeeded. All 4 routes generated cleanly:
-  - `○ /` (Workspace / Chat page)
-  - `○ /documents` (Documents repository & drawer page)
-  - `ƒ /documents/[id]` (Deep document inspection & PDF viewer page)
-  - `○ /evaluation` (RAG benchmark evaluation page)
+  **Latest recorded result:** Turbopack production compilation succeeded with 8 static/dynamic routes, including `/`, `/documents`, `/documents/[id]`, `/evaluation`, `/login`, `/robots.txt`, and `/sitemap.xml`.
 
 ### 2.3 Live End-to-End User Journey Verification
-Tested against running PostgreSQL 18 with pgvector:
+The following journey was recorded against PostgreSQL with pgvector. It is historical verification and was not rerun during the latest documentation audit:
 1. `GET /health` & `GET /ready` → 200 OK.
 2. `GET /api/v1/meta` → 200 OK.
 3. `POST /api/v1/documents` → 201 Created (PDF & TXT parsed, chunked, embedded with pgvector).

@@ -4,8 +4,9 @@
 assignment: a document Q&A assistant using retrieval-augmented
 generation (RAG) and a bounded tool-using agent.
 
-> **Status:** Implementation, E2E verification, and benchmark evaluation complete.
-> All acceptance criteria have been verified live against the application stack.
+> **Status:** Core application and benchmark evaluation are implemented. The current
+> Compose file requires an external PostgreSQL/pgvector instance, so the assignment's
+> clean-clone, one-command acceptance criterion remains pending.
 
 ## Start here
 
@@ -41,17 +42,17 @@ generation (RAG) and a bounded tool-using agent.
 -   [x] Primary-model failure can use configured fallback model.
 -   [x] Prompt-injection defense treats retrieved text as untrusted data.
 -   [x] Multi-page frontend supports 4 reference designs from `design/` (workspace, documents, doc-detail, evaluation).
--   [x] `docker compose up --build` starts frontend, API and database.
+-   [ ] `docker compose up --build` starts frontend, API and database. **Pending:** the checked-in Compose file currently defines only API and web services.
 -   [x] `.env.example`, sample document, seed data and automated tests.
 -   [x] 15 gold questions run against 300-token and 800-token chunks.
 -   [x] README reports correct-chunk retrieval, context-supported answers and average response time.
 -   [x] README states the selected chunk size and evidence for the choice.
--   [x] Clean-machine walkthrough succeeds.
+-   [ ] Clean-machine walkthrough succeeds with only `.env.example`, an API key, and Docker Compose. **Pending:** Compose-managed database provisioning.
 
 ## Scope note
 
 The assignment mentions hybrid retrieval and reranking as a progression:
 start with vector search, then add keyword + vector retrieval and a
-reranker, and compare results. The proposed plan implements vector-only
-as a baseline and hybrid retrieval as the comparison/final candidate if
-time and measured quality justify it.
+reranker, and compare results. This implementation measured vector-only
+and hybrid RRF retrieval. It did not evaluate a cross-encoder reranker;
+that limitation is stated in the README and evaluation report.

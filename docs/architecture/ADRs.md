@@ -6,7 +6,7 @@ tradeoff.
 
 ## ADR-001 --- Modular monolith
 
-**Status:** Proposed\
+**Status:** Accepted and implemented\
 **Context:** The deliverable must be easy to run and explain on a clean
 machine.\
 **Decision:** One FastAPI service with clear internal modules, one
@@ -18,7 +18,7 @@ still support future extraction.\
 
 ## ADR-002 --- PostgreSQL + pgvector as system of record
 
-**Status:** Required database; schema choice proposed\
+**Status:** Accepted and implemented\
 **Decision:** Store document metadata, chunks, embeddings, orders,
 tickets, and pending confirmations in PostgreSQL.\
 **Rationale:** Matches assignment and reduces operational dependencies.\
@@ -27,7 +27,7 @@ specialized retrieval platforms.
 
 ## ADR-003 --- Configurable external embedding and LLM providers
 
-**Status:** Provider selection open; environment-based secrets required\
+**Status:** Accepted and implemented with an OpenAI-compatible adapter\
 **Decision:** Wrap embedding and chat APIs behind provider interfaces
 and configure model names through environment variables.\
 **Rationale:** Makes model replacement and test fakes straightforward.\
@@ -46,8 +46,7 @@ record exact settings and repeats.
 
 ## ADR-005 --- Vector baseline, then hybrid retrieval
 
-**Status:** Assignment asks for both comparison and hybrid addition;
-exact final default open\
+**Status:** Implemented; hybrid RRF is the selected default\
 **Decision:** Implement vector-only baseline first. Add keyword + vector
 fusion and a reranker if reliable within the time budget. Compare on the
 same test set.\
@@ -58,7 +57,7 @@ parameters.
 
 ## ADR-006 --- Explicit router before tool orchestration
 
-**Status:** Proposed implementation\
+**Status:** Accepted and implemented\
 **Decision:** Use deterministic intent/rule checks for obvious order
 identifiers and order intents; use a small LLM classifier only when
 needed. Route ordinary document questions directly to RAG.\
@@ -89,7 +88,7 @@ handling.
 
 ## ADR-009 --- Synchronous bounded ingestion first
 
-**Status:** Proposed\
+**Status:** Accepted and implemented\
 **Decision:** Process modest-size files in the upload request with
 strict limits and visible status. Keep ingestion functions separable so
 they can move to a worker later.\
@@ -100,8 +99,8 @@ background jobs are a future improvement.
 ## ADR-010 --- No fabricated benchmark results
 
 **Status:** Non-negotiable process rule\
-**Decision:** README evaluation tables remain pending until the
-evaluation script runs.\
+**Decision:** Publish benchmark tables only from completed evaluation
+runs and retain the raw per-question artifact.\
 **Rationale:** Credible engineering evidence matters more than
 favorable-looking numbers.\
 **Tradeoff:** If results are mixed, the report must explain them rather

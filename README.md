@@ -10,7 +10,7 @@ DocuMind is a document-grounded question-and-answer assistant built for the Vana
 > - **Backend Test Suite:** 50 automated tests passing (`pytest`, `ruff`, strict `mypy`).
 > - **Frontend Build:** All 8 static and dynamic Next.js routes compiled cleanly with Turbopack (0 lint errors, 0 type errors).
 > - **Security & Guardrails:** Credential-bound tenant identity with anti-impersonation (403), production startup config validation, proxy-trust verified rate limiting (429) bounded at 10k clients, private cache-control headers, token-restricted `/metrics`.
-> - **Observability & SRE:** Structured JSON logging, sanitized request ID tracing, authenticated Prometheus metrics, operational runbooks, and tested backup/restore scripts (`scripts/backup.sh`, `scripts/restore.sh`).
+> - **Observability & SRE:** Structured JSON logging, sanitized request ID tracing, authenticated Prometheus metrics, and operational runbooks. Backup/restore scripts are included for a containerized PostgreSQL instance but were not revalidated in this documentation audit.
 > - **SEO & Privacy:** Dynamic `robots.txt` and `sitemap.xml` strictly excluding private document paths and `/login`.
 
 ---
@@ -31,7 +31,7 @@ DocuMind is a document-grounded question-and-answer assistant built for the Vana
   - `/`: upload, streamed chat, citations, source inspection, order routing, and ticket confirmation.
   - `/documents`: searchable document library with processing states and document details.
   - `/documents/[id]`: extracted text, chunk, and metadata inspection.
-  - `/evaluation`: measured 300-token versus 800-token results and the 15-question gold set.
+  - `/evaluation`: benchmark dashboard and the 15-question gold set. The canonical measurements are in `evaluation/results/latest.json`.
 
 ---
 
@@ -115,7 +115,7 @@ apps/
       page.tsx             Main workspace & chat view (/)
       robots.ts            Dynamic robots.txt disallowing private routes
       sitemap.ts           Dynamic sitemap.xml for public root only
-    components/            AppShell, SVG icons, TicketModal, SourceInspector
+    components/            AppShell, icons, confirm dialog, Markdown renderer
     lib/                   Typed API client, SSE streaming parser, auth & tenant manager
 data/                      Sample documents (TXT and Markdown), gold questions, seed orders
 docs/                      Comprehensive product, architecture, engineering & SRE docs
@@ -168,6 +168,8 @@ cp .env.example .env.production
 # Set OPENAI_API_KEY and a reachable production DATABASE_URL.
 docker compose up --build
 ```
+
+> **Known assignment gap:** `docker-compose.yml` currently defines only `api` and `web`; it does not provision PostgreSQL. The assignment's clean-clone, one-command workflow is therefore pending. Until a `db` service is restored, reviewers must provide a reachable PostgreSQL instance with pgvector and configure `DATABASE_URL` in `.env.production`.
 
 ### 5.4 Reviewer Walkthrough
 
@@ -355,4 +357,4 @@ pnpm run build
   - [Hardening Risk Register](docs/operations/RISKS.md)
 
 ---
-*DocuMind - Enterprise-Ready Document AI Assistant. Hardened, Authenticated, and Production-Verified.*
+*DocuMind - Document Q&A assistant with measured RAG evaluation and bounded tools.*

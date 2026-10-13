@@ -28,9 +28,7 @@ Keep each stage independently testable.
 
 -   Chunk target A: 300 tokens.
 -   Chunk target B: 800 tokens.
--   Overlap: keep constant for the primary comparison (proposed 50
-    tokens, unless tokenizer/chunker constraints require a different
-    value).
+-   Overlap: 50 tokens for both measured configurations.
 -   Use the same tokenizer and splitting strategy for both runs.
 -   Prefer section/paragraph boundaries, then split oversized sections
     by sentence/token boundaries.

@@ -17,22 +17,25 @@
 **Symptoms:** Readiness probe returns HTTP 503 (`DATABASE_UNAVAILABLE`), `documind_database_healthy == 0`.
 
 **Triage Steps:**
-1. Check container and service status:
+The current Compose file does not manage PostgreSQL. Use the database platform's native tooling or set `DB_CONTAINER` when PostgreSQL runs in a separate container.
+
+1. Check the configured database container:
    ```bash
-   docker compose ps db
-   docker compose logs db --tail 100
+   export DB_CONTAINER=<postgres-container-name>
+   docker ps --filter "name=$DB_CONTAINER"
+   docker logs "$DB_CONTAINER" --tail 100
    ```
 2. Verify PostgreSQL is listening and port 5432 is open:
    ```bash
-   docker compose exec db pg_isready -U documind -d documind
+   docker exec "$DB_CONTAINER" pg_isready -U documind -d documind
    ```
 3. Check disk space on database volume:
    ```bash
-   docker compose exec db df -h /var/lib/postgresql/data
+   docker exec "$DB_CONTAINER" df -h /var/lib/postgresql/data
    ```
 4. Restart database container if hung:
    ```bash
-   docker compose restart db
+   docker restart "$DB_CONTAINER"
    ```
 
 ### Scenario B: OpenAI API Outage or Quota Depletion

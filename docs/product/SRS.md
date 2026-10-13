@@ -69,7 +69,7 @@ citations.
 -   REST API under `/api/v1`.
 -   Multipart upload for documents.
 -   JSON for chat and tool-action requests.
--   Server-Sent Events (SSE) proposed for streamed answer tokens/status;
+-   Server-Sent Events (SSE) for streamed answer tokens/status;
     document exact event schema in API contract.
 -   PostgreSQL connection via environment variable.
 -   LLM/embedding provider credentials via environment variables.
@@ -78,8 +78,7 @@ citations.
 
 -   Upload extensions: `.pdf`, `.txt`; server must verify content type
     rather than trust filename alone.
--   Configurable maximum upload size; proposed initial default: 10 MiB,
-    subject to validation.
+-   Configurable maximum upload size; implemented default: 10 MiB.
 -   Query must be non-empty and bounded in length.
 -   Tool arguments use Pydantic schemas and strict field validation.
 -   Order identifiers use a documented format and are never interpreted

@@ -74,34 +74,15 @@
                  values                           pending until run 
   -------------------------------------------------------------------------------------
 
-## 2. Open decisions before scaffold
+## 2. Implemented decisions and remaining gaps
 
-1.  **LLM provider and model:** not mandated by assignment. Choose based
-    on API access, reliability, cost and structured/tool support; set
-    via environment.
-2.  **Embedding model and dimensions:** select once, record exact
-    dimensions, and use consistently for documents and queries.
-3.  **Tokenizer:** choose model-compatible tokenization for the 300/800
-    comparison.
-4.  **Overlap:** proposed 50 tokens for both sizes; confirm feasibility
-    with chunker.
-5.  **Retrieval threshold:** must be calibrated; do not hardcode an
-    untested universal threshold.
-6.  **Reranker:** choose a provider/local model only if feasible;
-    otherwise clearly report the limitation.
-7.  **Authentication:** assignment requires metadata/permission filters,
-    but does not prescribe auth. Decide whether demo scope is
-    single-user or implement minimal auth; never claim stronger
-    guarantees than built.
-8.  **Streaming protocol:** proposed SSE.
-9.  **Duplicate response semantics:** return existing document ID and
-    `duplicate=true` or a documented conflict response; idempotent
-    success is preferred for this demo.
-10. **Ticket confirmation UX:** pending action with expiry and explicit
-    confirm button.
-11. **Evaluation repetitions:** proposed at least 3 per
-    question/configuration if time allows; at minimum run all 15 for
-    both sizes and disclose repetition count.
+1.  **Models:** `gpt-4.1-mini` and `text-embedding-3-small` (1536 dimensions), configurable through environment variables.
+2.  **Chunking:** `cl100k_base`, 800-token production chunks and 50-token overlap; 300 and 800 tokens were both evaluated.
+3.  **Retrieval:** hybrid pgvector + PostgreSQL full-text search with RRF, top-k 5 and threshold 0.35. No cross-encoder reranker was evaluated.
+4.  **Scope:** development uses a fixed owner; production can bind API credentials to tenant UUIDs.
+5.  **Streaming and writes:** SSE chat streaming; duplicate uploads return the existing document; ticket writes require an expiring, single-use confirmation.
+6.  **Evaluation:** one recorded pass per question/configuration is preserved in `evaluation/results/latest.json`; repeated trials remain future work.
+7.  **Open blocker:** the current Compose file does not provision PostgreSQL, so clean-machine one-command startup does not meet the assignment requirement.
 
 ## 3. Recommended tradeoffs to explain in interview
 

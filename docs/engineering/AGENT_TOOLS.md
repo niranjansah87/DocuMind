@@ -74,13 +74,13 @@ allowlist.
 
 ## 4. Guardrails
 
--   Maximum tool/agent steps: proposed default 4.
+-   Maximum tool/agent steps: default 4, configurable.
 -   Maximum generation tokens: environment-configured.
 -   Per-request cost/token budget: define a budget when the provider
     exposes token/cost data; fail safely if exceeded.
 -   Per-tool timeout: environment-configured.
 -   Retries: exponential backoff with jitter for transient failures
-    only; proposed maximum 2 retries after the first attempt.
+    only; maximum 2 retries after the first attempt by default.
 -   Overall request deadline: greater than individual tool timeout but
     bounded.
 -   Validate every tool argument with Pydantic before execution.

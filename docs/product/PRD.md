@@ -6,7 +6,7 @@
 **Primary stakeholder:** VanarX Tech take-home assignment reviewer  
 **Intended readers:** Candidate/engineer, coding agents, reviewers, future maintainers  
 **Source of mandatory requirements:** `vanarX_candidate_task.docx` supplied for this assignment  
-**Implementation status:** Fully implemented, verified end-to-end, and benchmarked.
+**Implementation status:** Core application and benchmark implemented. FR-026 (database, API and frontend from one Compose command on a clean clone) remains pending because the current Compose file omits the database service. A cross-encoder reranker was not evaluated.
 
 > **Interpretation rule:** “Required” means explicitly requested by the assignment. “Recommended” means a design choice proposed to make the system reliable. Open decisions must not be presented as implemented facts. Evaluation metrics must be measured, never fabricated.
 
@@ -228,7 +228,7 @@ Priority definitions:
 ### 9.1 Upload and ingestion
 - Allowed extensions: PDF and TXT.
 - Do not trust filename extension alone; validate MIME/signature where practical.
-- Maximum size is configuration-driven; proposed initial default is 10 MiB, subject to implementation.
+- Maximum size is configuration-driven; the implemented default is 10 MiB.
 - Reject empty file and extracted content with no meaningful text.
 - Hash original bytes using SHA-256.
 - Deduplicate within ownership scope, not globally across users, to avoid revealing that another user uploaded identical content.
@@ -239,7 +239,7 @@ Priority definitions:
 
 ### 9.2 Chunking
 - Compare target sizes of 300 and 800 tokens.
-- Use the same overlap for the primary comparison; proposed initial overlap is 50 tokens.
+- Use the same overlap for the primary comparison; the implemented value is 50 tokens.
 - Use a consistent tokenizer/chunking algorithm.
 - Prefer natural boundaries (heading, paragraph, sentence) before splitting long sections.
 - Retain chunk index, target size, overlap, section and page metadata when available.
@@ -263,9 +263,9 @@ Priority definitions:
 - Clear order intent routes to the order tool.
 - Missing/ambiguous order identifiers should trigger clarification rather than guesswork.
 - Tool names come from a fixed registry.
-- Proposed maximum steps: 4; configurable.
+- Maximum steps: 4 by default; configurable.
 - Per-call timeout and overall request deadline are configurable.
-- Proposed retry policy: at most two retries after the first attempt for transient failures, with exponential backoff and jitter.
+- Retry policy: at most two retries after the first attempt for transient failures, with exponential backoff and jitter.
 - Token/cost budget should be enforced where provider usage/cost data is available; at minimum enforce output-token and step limits.
 - Side-effecting operations are not parallelized with reads or retried blindly.
 
@@ -278,7 +278,7 @@ Priority definitions:
 - The UI must clearly distinguish prepared from created.
 
 ### 9.6 Streaming
-- Server-Sent Events (SSE) is the proposed protocol for one-way answer streaming.
+- Server-Sent Events (SSE) is the implemented protocol for one-way answer streaming.
 - Events should distinguish status, answer token, final citations, completion and error.
 - Citations should be shown as trusted only after server validation.
 - Client must handle network interruption, cancellation and stream completion.
@@ -426,18 +426,14 @@ The assignment is considered complete when:
 9. Evaluation script and gold-set runs.
 10. Automated tests, security review, README and clean-machine verification.
 
-## 17. Open decisions to resolve during scaffolding
+## 17. Resolved implementation decisions and open items
 
-- LLM provider, primary model, fallback model and API keys.
-- Embedding provider/model, dimensions, language coverage and cost.
-- Tokenizer library and exact token-count semantics.
-- Final overlap and top-k values.
-- Similarity metric and calibrated threshold.
-- Hybrid fusion method and reranker availability.
-- Authentication/demo ownership scope.
-- SSE event schema.
-- Duplicate upload response semantics.
-- Number of evaluation repetitions.
-- Which operational limits are hard-enforced versus estimated cost controls.
-
-Until these are decided and implemented, they remain proposed choices, not product facts.
+- OpenAI-compatible provider adapter; `gpt-4.1-mini` primary model and optional configured fallback.
+- `text-embedding-3-small`, 1536 dimensions, and `cl100k_base` tokenization.
+- 800-token production chunks, 50-token overlap, top-k 5, cosine similarity and threshold 0.35.
+- Hybrid pgvector + PostgreSQL full-text retrieval using RRF; no cross-encoder reranker.
+- Fixed development owner scope with credential-bound tenant mappings available in production mode.
+- SSE events are defined in the API contract; duplicate uploads return the existing document with `duplicate=true`.
+- The stored benchmark contains one run per question/configuration; repeated trials remain future work.
+- Output tokens, tool steps, timeouts and retries are bounded. Provider-reported monetary cost is not enforced.
+- Open blocker: add a Compose-managed PostgreSQL/pgvector service and re-run the clean-machine reviewer workflow.

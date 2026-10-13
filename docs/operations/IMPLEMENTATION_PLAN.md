@@ -2,7 +2,7 @@
 
 ## 1. Execution Strategy
 
-DocuMind has been completed as a production-grade modular monolith. Every phase from initial audit, backend services, database migrations, pgvector storage, RAG retrieval, agent tool contracts, 4 reference-accurate frontend pages, automated testing, and benchmark evaluation has been implemented, verified live end-to-end, and documented.
+DocuMind implements the modular application, RAG pipeline, bounded tools, frontend routes, automated tests, and benchmark evaluation. The assignment-required clean-machine Compose workflow is not complete because the current Compose file does not provision PostgreSQL.
 
 ---
 
@@ -15,14 +15,14 @@ DocuMind has been completed as a production-grade modular monolith. Every phase 
 
 ### Phase 1 - Scaffold and Infrastructure
 - [x] Monorepo structure: `apps/api` (FastAPI), `apps/web` (Next.js 16), `data/`, `evaluation/`.
-- [x] PostgreSQL 18 with pgvector extension enabled.
-- [x] Docker Compose setup (`docker-compose.yml`) with automated migrations, seed data, and health checks.
+- [x] PostgreSQL with pgvector supported through Alembic migrations.
+- [ ] Docker Compose starts database, API, and web from a clean clone. Current Compose starts API and web only and requires an external database.
 - [x] `.env.example` template with clear placeholders.
 - [x] Structured request IDs, standardized error envelope, and `/health`, `/ready` endpoints.
 
 ### Phase 2 - Database and Seed Data
 - [x] Relational schema: `documents`, `document_chunks`, `orders`, `support_tickets`, `pending_actions`.
-- [x] Vector indexes: IVFFlat / HNSW vector index on `document_chunks.embedding` (1536 dims).
+- [x] Exact pgvector cosine search on `document_chunks.embedding` (1536 dims). No IVFFlat/HNSW index is created for the small assignment dataset.
 - [x] Seed data: repeatable order dataset (`ORD-1001`, `ORD-1002`, `ORD-1003`) and sample customer policy.
 - [x] Database constraints and foreign key cascading.
 
@@ -52,7 +52,7 @@ DocuMind has been completed as a production-grade modular monolith. Every phase 
 - [x] Bounded steps, timeouts, and fallback model configuration.
 
 ### Phase 6 - Frontend Design Realization
-- [x] 100% faithful reproduction of 4 reference designs in `design/`:
+- [x] Four responsive frontend workflows based on the reference designs in `design/`:
   - `Documind_workspace.png` → `/` (Workspace, Chat, Inline Citations, Right Sources Inspector, Ticket Modal).
   - `documind_documents_page.png` → `/documents` (Banner, Filter Pills, Documents Table, Slide-out Drawer).
   - `documind_documents_details_page.png` → `/documents/[id]` (Thumbnails Rail, Canvas with highlighted excerpts, Chunk Inspector).
@@ -64,9 +64,9 @@ DocuMind has been completed as a production-grade modular monolith. Every phase 
 ### Phase 7 - Evaluation, Testing, and Verification
 - [x] Complete 15-question gold benchmark executed comparing 300 vs 800 token chunks across Vector and Hybrid retrieval.
 - [x] 800 tokens with Hybrid retrieval established as optimal (100% recall, 100% supported, 1591ms mean latency).
-- [x] Full backend test suite passing (`pytest` 25/25 passed).
-- [x] Strict linting and type checking passing (`ruff check`, strict `mypy` 0 errors across 55 source files).
-- [x] 13/13 live E2E user journeys verified against PostgreSQL and FastAPI backend.
+- [x] Full backend test suite passing (`pytest` 50/50 passed at the latest recorded verification).
+- [x] Strict linting and type checking passing (`ruff check`, strict `mypy` across 63 source files at the latest recorded verification).
+- [x] A 13-step live E2E run is documented in `docs/engineering/TESTING.md`; it was not repeated during the documentation audit.
 
 ---
 
@@ -81,7 +81,8 @@ DocuMind has been completed as a production-grade modular monolith. Every phase 
 | Honest Abstention | Explicit unknown response on missing facts | Fully implemented and tested | Yes |
 | Database Tool | `get_order_status` queries PostgreSQL | Fully implemented and tested | Yes |
 | Ticket Guardrail | Two-stage confirm, single-use, replay protection | Fully implemented and tested | Yes |
-| Frontend Design | 4 routes matching `design/` mockups | 100% design-accurate | Yes |
-| Automated Tests | Unit, integration, E2E coverage | 25 pytest + 13 live E2E pass | Yes |
+| Frontend Design | Responsive workspace, documents, details and evaluation workflows | Implemented from the reference designs | Yes |
+| Automated Tests | Unit and integration coverage | 50 pytest tests at latest verification | Yes |
 | Static Analysis | Python (ruff, strict mypy), Web (tsc, eslint) | 0 errors across all checks | Yes |
-| Documentation | API contract, RAG, UX, evaluation, README | Fully synchronized | Yes |
+| Clean Compose startup | Database, API and web from one command | Database service missing from current Compose file | **No** |
+| Documentation | API contract, RAG, UX, evaluation, README | Audited against current repository state | Yes |

@@ -9,7 +9,7 @@ This document details operations, local setup (with and without Docker), and pro
 DocuMind supports three operating environments:
 
 1. **Local Development (Native / Without Docker):** Direct execution using Python virtual environments (`uv`) and Node.js (`npm`).
-2. **Containerized (Docker Compose):** Multi-container stack (`db`, `api`, `web`) started with a single command.
+2. **Containerized application services (Docker Compose):** API and web containers connected to an externally managed PostgreSQL/pgvector database.
 3. **Production Deployment (Nginx + Systemd):** Single-domain reverse proxy (`documind.niranjansah87.com.np`) with SSL and hidden internal backend.
 
 ---
@@ -79,16 +79,17 @@ Internal rewrites in Next.js automatically forward `/api/*`, `/health`, and `/re
 
 Prerequisites: Docker Engine/Desktop with Compose plugin.
 
-1. Ensure `.env` is configured.
-2. Build and launch all services:
+The checked-in Compose file does **not** define a PostgreSQL service. This is a known gap against the assignment's required one-command clean-machine workflow.
+
+1. Copy `.env.example` to `.env.production`.
+2. Set `OPENAI_API_KEY` and set `DATABASE_URL` to a PostgreSQL instance reachable from the API container. The database must have pgvector available.
+3. Build and launch the application services:
    ```bash
    docker compose up --build
    ```
-3. Stop services:
+4. Stop services:
    ```bash
    docker compose down
-   # To also delete the PostgreSQL volume:
-   docker compose down -v
    ```
 
 ---

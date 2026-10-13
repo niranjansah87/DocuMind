@@ -27,7 +27,7 @@ The script performs:
 5. Pruning of dumps older than 14 days.
 
 > [!NOTE]
-> Operational boundary: While `scripts/backup.sh` is fully executable and verified, production automated cron execution or offsite S3 object-lock replication is an infrastructure-layer orchestration task requiring host-level crontab or cloud scheduler configuration.
+> Operational boundary: These scripts expect a running PostgreSQL container. Because the current Compose file has no `db` service, set `DB_CONTAINER` to the real container name. The scripts were not revalidated during the latest documentation audit. Production scheduling and offsite replication remain external infrastructure tasks.
 
 ---
 
@@ -47,14 +47,15 @@ Execute the restore script against a designated backup file and target database:
    ```bash
    docker compose stop api web
    ```
-2. Drop and recreate the target database:
+2. Set the PostgreSQL container name, then drop and recreate the target database:
    ```bash
-   docker compose exec db psql -U documind -d postgres -c "DROP DATABASE IF EXISTS documind_restored;"
-   docker compose exec db psql -U documind -d postgres -c "CREATE DATABASE documind_restored OWNER documind;"
+   export DB_CONTAINER=<postgres-container-name>
+   docker exec "$DB_CONTAINER" psql -U documind -d postgres -c "DROP DATABASE IF EXISTS documind_restored;"
+   docker exec "$DB_CONTAINER" psql -U documind -d postgres -c "CREATE DATABASE documind_restored OWNER documind;"
    ```
 3. Restore schema, tables, and vector embeddings using `pg_restore`:
    ```bash
-   docker compose exec -T db pg_restore \
+   docker exec -i "$DB_CONTAINER" pg_restore \
      -U documind \
      -d documind_restored \
      --verbose \
@@ -63,7 +64,7 @@ Execute the restore script against a designated backup file and target database:
    ```
 4. Verify record counts and pgvector indexing:
    ```bash
-   docker compose exec db psql -U documind -d documind_restored -c "
+   docker exec "$DB_CONTAINER" psql -U documind -d documind_restored -c "
      SELECT count(*) AS total_documents FROM documents;
      SELECT count(*) AS total_chunks FROM document_chunks;
      SELECT count(*) AS total_orders FROM orders;

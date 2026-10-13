@@ -1,6 +1,6 @@
 # Architecture Overview
 
-## 1. Recommended shape: modular monolith
+## 1. Implemented shape: modular monolith
 
 Use one FastAPI application organized into modules rather than multiple
 network services. For this assignment, a modular monolith reduces
@@ -21,8 +21,8 @@ flowchart LR
   ROUTER -->|document query| RAG[RAG Service]
   RAG --> RET[Retriever: vector / hybrid]
   RET --> DB
-  RAG --> RERANK[Reranker - optional/configured]
-  RERANK --> GEN[Grounded Answer Generator]
+  RAG --> FUSE[PostgreSQL FTS + pgvector RRF]
+  FUSE --> GEN[Grounded Answer Generator]
   GEN --> LLM[Primary / Fallback LLM]
   ROUTER -->|order / ticket intent| AGENT[Bounded Tool Orchestrator]
   AGENT --> TOOLS[search_docs / get_order_status / create_ticket]
@@ -55,14 +55,13 @@ simplifies latency/retries.
 2.  Router selects RAG for document questions.
 3.  Embed query.
 4.  Retrieve top-k vector candidates within scope.
-5.  Optionally combine keyword candidates using reciprocal-rank fusion
+5.  Combine keyword and vector candidates using reciprocal-rank fusion
     (RRF).
-6.  Optionally rerank the bounded candidate set.
-7.  Apply relevance/score policy.
-8.  If evidence is insufficient, abstain.
-9.  Generate at low temperature using only supplied excerpts.
-10. Validate returned citation IDs against retrieved candidates.
-11. Return answer, citations, latency and route metadata.
+6.  Apply relevance/score policy.
+7.  If evidence is insufficient, abstain.
+8.  Generate at low temperature using only supplied excerpts.
+9.  Validate returned citation IDs against retrieved candidates.
+10. Return answer, citations, latency and route metadata.
 
 ### Order question path
 
@@ -89,17 +88,16 @@ simplifies latency/retries.
 
 -   `api/routes`: HTTP request/response validation only.
 -   `core`: settings, error types, logging, IDs, shared limits.
--   `db`: SQLAlchemy/driver setup, models, migrations, repository
-    functions.
+-   `db`: SQLAlchemy/driver setup and models; Alembic migrations live in
+    `apps/api/migrations`.
 -   `ingestion`: parsers, hashing, chunking, embedding, ingestion
     orchestration.
--   `retrieval`: vector query, keyword query, fusion, reranking,
-    relevance policy.
+-   `repositories`: scoped vector query, keyword query, RRF fusion and
+    persistence operations.
 -   `services`: chat orchestration, citation validation, provider
     adapters.
--   `agent`: route selection, step/token/cost budget, model fallback.
--   `tools`: strict typed tools with no direct arbitrary SQL from model
-    output.
+-   `agent`: route selection, fixed tool registry and typed tool
+    execution with bounded steps and no arbitrary SQL from model output.
 -   `tests`: unit, integration, contract, and end-to-end tests.
 
 ## 5. Reliability patterns
@@ -120,7 +118,7 @@ simplifies latency/retries.
 ## 6. Observability
 
 Capture operation-level timings for parse, chunk, embed, retrieve,
-rerank, generation and total request. Logs should contain request ID,
+retrieval, generation and total request. Logs should contain request ID,
 route, status, candidate count, model identifier and durations. Avoid
 logging API keys, full document contents, raw private prompts, or
 personal order data.

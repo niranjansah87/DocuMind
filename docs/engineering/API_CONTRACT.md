@@ -345,7 +345,7 @@ Retrieves benchmark evaluation specifications and 15 gold evaluation questions.
   "chunk_sizes": [300, 800],
   "status": "ready",
   "runs": [],
-  "command": "python -m app.evaluation.runner"
+  "command": "python -m app.evaluation --chunk-sizes 300 800"
 }
 ```
 

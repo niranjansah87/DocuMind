@@ -195,7 +195,7 @@ export default function DocumentsPage() {
           <div className="top-banner-text">
             <h3>Upload documents to start a conversation</h3>
             <p>
-              Supported formats: PDF, TXT • Max size: 20 MB
+              Supported formats: PDF, TXT • Max size: {meta ? formatFileSize(meta.max_upload_bytes) : "10 MB"}
               {meta ? ` • Engine: ${meta.embedding_model}` : ""}
             </p>
           </div>
