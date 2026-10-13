@@ -13,10 +13,14 @@ def reset_limiter() -> None:
     SlidingWindowRateLimiter.reset()
 
 
-def make_mock_request(path: str = "/api/v1/chat", client_ip: str = "192.168.1.100") -> Request:
+def make_mock_request(
+    path: str = "/api/v1/chat",
+    client_ip: str = "192.168.1.100",
+    headers: dict[str, str] | None = None,
+) -> Request:
     request = MagicMock(spec=Request)
     request.url.path = path
-    request.headers = {}
+    request.headers = headers or {}
     request.client.host = client_ip
     return request
 
@@ -66,17 +70,20 @@ def test_spoofed_forwarded_for_from_untrusted_client_ignored() -> None:
     # Client at 203.0.113.19 attempts to spoof different X-Forwarded-For headers
     settings = Settings(rate_limit_enabled=True, trusted_proxies=["127.0.0.1"])
 
-    req1 = make_mock_request("/api/v1/chat", client_ip="203.0.113.19")
-    req1.headers = {"X-Forwarded-For": "1.1.1.1"}
+    req1 = make_mock_request(
+        "/api/v1/chat", client_ip="203.0.113.19", headers={"X-Forwarded-For": "1.1.1.1"}
+    )
     enforce_rate_limit(req1, limit=2, settings=settings)
 
-    req2 = make_mock_request("/api/v1/chat", client_ip="203.0.113.19")
-    req2.headers = {"X-Forwarded-For": "2.2.2.2"}
+    req2 = make_mock_request(
+        "/api/v1/chat", client_ip="203.0.113.19", headers={"X-Forwarded-For": "2.2.2.2"}
+    )
     enforce_rate_limit(req2, limit=2, settings=settings)
 
     # 3rd request from same client_ip with another spoofed header must be blocked
-    req3 = make_mock_request("/api/v1/chat", client_ip="203.0.113.19")
-    req3.headers = {"X-Forwarded-For": "3.3.3.3"}
+    req3 = make_mock_request(
+        "/api/v1/chat", client_ip="203.0.113.19", headers={"X-Forwarded-For": "3.3.3.3"}
+    )
     with pytest.raises(AppError) as exc_info:
         enforce_rate_limit(req3, limit=2, settings=settings)
     assert exc_info.value.status_code == 429
@@ -85,8 +92,9 @@ def test_spoofed_forwarded_for_from_untrusted_client_ignored() -> None:
 def test_trusted_proxy_forwarded_for_respected() -> None:
     settings = Settings(rate_limit_enabled=True, trusted_proxies=["127.0.0.1"])
 
-    req_proxy = make_mock_request("/api/v1/chat", client_ip="127.0.0.1")
-    req_proxy.headers = {"X-Forwarded-For": "198.51.100.5"}
+    req_proxy = make_mock_request(
+        "/api/v1/chat", client_ip="127.0.0.1", headers={"X-Forwarded-For": "198.51.100.5"}
+    )
 
     enforce_rate_limit(req_proxy, limit=1, settings=settings)
     with pytest.raises(AppError) as exc_info:

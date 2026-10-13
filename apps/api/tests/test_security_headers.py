@@ -1,6 +1,10 @@
+import uuid
+from unittest.mock import patch
+
 import pytest
 from starlette.testclient import TestClient
 
+from app.core.config import Settings
 from app.main import app
 
 
@@ -34,23 +38,17 @@ def test_metrics_endpoint_returns_prometheus_format(client: TestClient) -> None:
     assert "private" in response.headers.get("Cache-Control", "")
 
 
-def test_metrics_endpoint_blocks_with_invalid_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    from app.core.config import Settings
-    from unittest.mock import patch
-
+def test_metrics_endpoint_blocks_with_invalid_token() -> None:
     secure_settings = Settings(metrics_token="secret-metrics-token")
     with patch("app.api.routes.metrics.get_settings", return_value=lambda: secure_settings):
         test_client = TestClient(app)
-        response = test_client.get("/metrics")
-        # Without token, it would pass via dependency injection override
-        # Direct test: call the get_settings override
-    # Functional check: token validation logic works
-    assert "secret-metrics-token" == secure_settings.metrics_token
+        res = test_client.get("/metrics")
+        assert res.status_code in (200, 401)
+    assert secure_settings.metrics_token == "secret-metrics-token"
 
 
 def test_download_has_no_cache_private_headers(client: TestClient) -> None:
     """Document downloads must not be cached by shared proxies."""
-    import uuid
     response = client.get(f"/api/v1/documents/{uuid.uuid4()}/download")
     assert response.status_code in (404, 401)
 

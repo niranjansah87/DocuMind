@@ -3,10 +3,12 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi import Request
+from fastapi.testclient import TestClient
 
 from app.api.dependencies import DEMO_OWNER_ID, get_owner_id
 from app.core.config import Settings
 from app.core.errors import AppError
+from app.main import app
 
 
 def make_request(headers: dict[str, str] | None = None) -> Request:
@@ -79,9 +81,6 @@ def test_auth_required_accepts_valid_api_key_header() -> None:
 
 
 def test_auth_verify_endpoint_default() -> None:
-    from fastapi.testclient import TestClient
-    from app.main import app
-
     client = TestClient(app)
     response = client.get("/api/v1/auth/verify")
     assert response.status_code == 200
@@ -92,9 +91,6 @@ def test_auth_verify_endpoint_default() -> None:
 
 
 def test_auth_verify_endpoint_with_tenant() -> None:
-    from fastapi.testclient import TestClient
-    from app.main import app
-
     client = TestClient(app)
     custom_tenant = str(uuid.uuid4())
     response = client.get("/api/v1/auth/verify", headers={"X-Owner-Id": custom_tenant})

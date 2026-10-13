@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Icon } from "./icons";
+import { getAuthToken, getTenantId } from "@/lib/auth";
 
 const navItems = [
   { href: "/", label: "Chat", icon: "chat" as const },
@@ -25,6 +26,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [activeRecent, setActiveRecent] = useState<string>("refund-policy");
+  const [tenantLabel, setTenantLabel] = useState<string>("Reviewer Scope");
+
+  useEffect(() => {
+    const tid = getTenantId();
+    const token = getAuthToken();
+    if (tid && tid !== "00000000-0000-0000-0000-000000000001") {
+      setTenantLabel(`Tenant ${tid.slice(0, 8)}`);
+    } else if (token) {
+      setTenantLabel("API Key Auth");
+    } else {
+      setTenantLabel("Reviewer Scope");
+    }
+  }, [pathname]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -180,10 +194,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               className="user-profile-card cursor-pointer"
               title="Manage workspace authentication and credentials"
             >
-              <div className="user-avatar">N</div>
+              <div className="user-avatar">{tenantLabel.startsWith("Tenant") ? "T" : "D"}</div>
               <div className="user-details">
                 <span className="user-name">Niranjan Sah</span>
-                <span className="user-workspace">Workspace Auth</span>
+                <span className="user-workspace flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shrink-0" />
+                  <span className="truncate">{tenantLabel}</span>
+                </span>
               </div>
               <div className="user-dropdown-icon">
                 <Icon name="tune" size={14} />

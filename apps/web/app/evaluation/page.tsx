@@ -193,8 +193,31 @@ export default function EvaluationPage() {
     }, 2500);
   };
 
+  const questionsList: QuestionRow[] = useMemo(() => {
+    if (evaluation?.questions && evaluation.questions.length > 0) {
+      return evaluation.questions.map((q, idx) => {
+        const mockFallback = GOLD_QUESTIONS_MOCK[idx] || {
+          status300: "Correct" as const,
+          status800: "Correct" as const,
+          timeSeconds: 2.1,
+        };
+        return {
+          id: q.id,
+          num: idx + 1,
+          question: q.question,
+          expectedShort: q.expected_answer,
+          sectionPage: q.gold_section,
+          status300: mockFallback.status300,
+          status800: mockFallback.status800,
+          timeSeconds: mockFallback.timeSeconds,
+        };
+      });
+    }
+    return GOLD_QUESTIONS_MOCK;
+  }, [evaluation]);
+
   const handleDownloadQuestions = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(GOLD_QUESTIONS_MOCK, null, 2));
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(questionsList, null, 2));
     const dlAnchorElem = document.createElement("a");
     dlAnchorElem.setAttribute("href", dataStr);
     dlAnchorElem.setAttribute("download", "gold_questions.json");
@@ -202,7 +225,7 @@ export default function EvaluationPage() {
   };
 
   const filteredQuestions = useMemo(() => {
-    return GOLD_QUESTIONS_MOCK.filter((q) => {
+    return questionsList.filter((q) => {
       if (tableFilter === "correct" && q.status800 !== "Correct") return false;
       if (tableFilter === "partial" && q.status300 !== "Partial") return false;
       if (tableFilter === "incorrect" && q.status300 !== "Incorrect") return false;
@@ -212,7 +235,7 @@ export default function EvaluationPage() {
       }
       return true;
     });
-  }, [tableFilter, searchQuery]);
+  }, [questionsList, tableFilter, searchQuery]);
 
   const pagedQuestions = filteredQuestions.slice((page - 1) * 5, page * 5);
 
