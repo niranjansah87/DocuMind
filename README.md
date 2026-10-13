@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="apps/web/public/logo.png" alt="DocuMind" width="240" />
+  <img src="apps/web/public/logo_mark.png" alt="DocuMind" width="240" />
 </p>
 
 # DocuMind - Document Q&A Assistant with RAG and Tools
