@@ -788,7 +788,7 @@ export default function WorkspacePage() {
                 <div className="inspector-details-tab">
                   <div className="info-group">
                     <span className="info-label">File name</span>
-                    <span className="info-value">{activeDoc?.filename ?? "—"}</span>
+                    <span className="info-value">{activeDoc?.filename ?? "-"}</span>
                   </div>
                   <div className="info-group">
                     <span className="info-label">File type</span>
@@ -797,7 +797,7 @@ export default function WorkspacePage() {
                   <div className="info-group">
                     <span className="info-label">File size</span>
                     <span className="info-value">
-                      {activeDoc ? `${(activeDoc.byte_size / (1024 * 1024)).toFixed(1)} MB` : "—"}
+                      {activeDoc ? `${(activeDoc.byte_size / (1024 * 1024)).toFixed(1)} MB` : "-"}
                     </span>
                   </div>
                   <div className="info-group">

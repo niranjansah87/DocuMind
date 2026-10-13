@@ -1,4 +1,4 @@
-# Security Policy — DocuMind
+# Security Policy - DocuMind
 
 ## 1. Supported Versions
 

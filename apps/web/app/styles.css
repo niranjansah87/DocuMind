@@ -40,7 +40,7 @@
   --purple-border: #e9d5ff;
   --purple-dot: #a855f7;
 
-  /* Polished Shadows — Multi-layered for realistic depth */
+  /* Polished Shadows - Multi-layered for realistic depth */
   --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
   --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
   --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.03);
@@ -708,7 +708,7 @@ a {
   transform: translateY(-1px);
 }
 
-/* User Message — ChatGPT style (clean right-aligned bubble with subtle background) */
+/* User Message - ChatGPT style (clean right-aligned bubble with subtle background) */
 .user-message-row {
   display: flex;
   justify-content: flex-end;
@@ -746,7 +746,7 @@ a {
   padding: 0 4px;
 }
 
-/* Assistant Message — ChatGPT style (full width clean prose, subtle icon) */
+/* Assistant Message - ChatGPT style (full width clean prose, subtle icon) */
 .assistant-message-row {
   display: flex;
   gap: 16px;
@@ -1270,7 +1270,7 @@ a {
   transform: translateY(-1px);
 }
 
-/* Chat Input Bar — ChatGPT centered container */
+/* Chat Input Bar - ChatGPT centered container */
 .chat-composer-wrapper {
   padding: 0 20px 24px;
   max-width: 820px;

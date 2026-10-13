@@ -160,19 +160,19 @@ Streams real-time answers, routing status, and citations via Server-Sent Events 
 ```
 
 **SSE Event Flow:**
-1. `event: status` — Route classification and processing stage (`retrieving` or `answering`).
+1. `event: status` - Route classification and processing stage (`retrieving` or `answering`).
    ```text
    data: {"route": "rag", "stage": "retrieving"}
    ```
-2. `event: token` — Incremental answer text tokens.
+2. `event: token` - Incremental answer text tokens.
    ```text
    data: {"text": "Customers have 30 days"}
    ```
-3. `event: citations` — Verified citation candidates grounded in retrieved chunks.
+3. `event: citations` - Verified citation candidates grounded in retrieved chunks.
    ```text
    data: [{"document_id": "8b2be449-2a62-45e3-8f37-fa286333dbde", "document_name": "Customer Support Policy.pdf", "chunk_id": "c-1", "chunk_index": 0, "section": "Returns", "page_start": 1, "page_end": 1, "quote": "Customers may return items within 30 calendar days of delivery."}]
    ```
-4. `event: done` — Final completion payload with metadata.
+4. `event: done` - Final completion payload with metadata.
    ```text
    data: {"route": "rag", "abstained": false, "latency_ms": 1420, "answer": "Customers have 30 days to return eligible items."}
    ```

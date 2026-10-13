@@ -4,10 +4,10 @@
 
 | Severity | Definition | Response Target | Initial Actions |
 | :--- | :--- | :--- | :--- |
-| **P0 — Emergency** | Complete service outage, data corruption, database downtime, credential leak. | < 15 minutes | Page on-call engineer, check container status, initiate rollback or read-only failover. |
-| **P1 — Critical** | Ingestion pipeline broken, chat failure rate > 5%, OpenAI provider quota exhausted. | < 1 hour | Switch to fallback LLM model, check provider credits, inspect rate-limiting metrics. |
-| **P2 — Major** | Elevated latency (>4s p95), non-critical tool failure, localized UI glitch. | < 4 hours | Inspect slow query logs, review active database connections, analyze error boundaries. |
-| **P3 — Minor** | Cosmetic defect, minor documentation typo, routine performance optimization. | Next business day | File tracking issue, schedule in sprint. |
+| **P0 - Emergency** | Complete service outage, data corruption, database downtime, credential leak. | < 15 minutes | Page on-call engineer, check container status, initiate rollback or read-only failover. |
+| **P1 - Critical** | Ingestion pipeline broken, chat failure rate > 5%, OpenAI provider quota exhausted. | < 1 hour | Switch to fallback LLM model, check provider credits, inspect rate-limiting metrics. |
+| **P2 - Major** | Elevated latency (>4s p95), non-critical tool failure, localized UI glitch. | < 4 hours | Inspect slow query logs, review active database connections, analyze error boundaries. |
+| **P3 - Minor** | Cosmetic defect, minor documentation typo, routine performance optimization. | Next business day | File tracking issue, schedule in sprint. |
 
 ---
 

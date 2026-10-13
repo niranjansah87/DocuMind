@@ -390,7 +390,7 @@ export default function DocumentsPage() {
                       </td>
                       <td className="td-size">{formatFileSize(doc.byte_size)}</td>
                       <td className="td-chunks">
-                        {doc.status === "failed" ? "—" : chunkEstimate}
+                        {doc.status === "failed" ? "-" : chunkEstimate}
                       </td>
                       <td className="td-status">
                         <span className={`status-badge-cell ${doc.status === "ready" ? "completed" : doc.status}`}>

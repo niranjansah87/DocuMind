@@ -18,9 +18,9 @@ All page layouts adhere to strict typographic hierarchy, responsive sidebars, cu
   - **Brand Header:** DocuMind logo mark, title, and collapse toggle.
   - **Primary Action:** `+ New Chat` button with `Ctrl K` keyboard shortcut badge.
   - **Main Navigation:**
-    - `Workspace` (`/`) — Active chat interface.
-    - `Documents` (`/documents`) — Document repository.
-    - `Evaluation` (`/evaluation`) — Benchmark suite with distinctive `Beta` badge pill.
+    - `Workspace` (`/`) - Active chat interface.
+    - `Documents` (`/documents`) - Document repository.
+    - `Evaluation` (`/evaluation`) - Benchmark suite with distinctive `Beta` badge pill.
   - **Recent Conversations Rail:**
     - Categorized conversational threads with relative time tags (e.g. `2m ago`, `1h ago`, `Yesterday`).
     - Active selection highlight with options menu.
@@ -31,7 +31,7 @@ All page layouts adhere to strict typographic hierarchy, responsive sidebars, cu
 
 ## 3. Route Specifications
 
-### 3.1 Workspace & Chat (`/`) — Matching `Documind_workspace.png`
+### 3.1 Workspace & Chat (`/`) - Matching `Documind_workspace.png`
 - **Document Header Banner:**
   - Active document icon (PDF/TXT), filename, ingestion status (`Ready` green badge), chunk count, file size, and upload recency.
   - Action buttons: Share, Document Settings, and Quick Upload.
@@ -55,7 +55,7 @@ All page layouts adhere to strict typographic hierarchy, responsive sidebars, cu
   - Two-stage flow: Draft/Summary preview → Explicit Confirm button.
   - Displays generated ticket number (e.g. `TKT-D47003EF`) upon confirmation.
 
-### 3.2 Documents Repository (`/documents`) — Matching `documind_documents_page.png`
+### 3.2 Documents Repository (`/documents`) - Matching `documind_documents_page.png`
 - **Top Upload Banner:**
   - Prominent banner with format support indicator (`PDF, TXT • Max 10 MB • Engine: text-embedding-3-small`).
   - Direct file upload button with native file chooser.
@@ -73,7 +73,7 @@ All page layouts adhere to strict typographic hierarchy, responsive sidebars, cu
   - Tabbed sub-views: `Overview`, `Chunks`, `Preview`.
   - Drawer action footer: `Chat with this document` and `View in chat →`.
 
-### 3.3 Deep Document Inspection (`/documents/[id]`) — Matching `documind_documents_details_page.png`
+### 3.3 Deep Document Inspection (`/documents/[id]`) - Matching `documind_documents_details_page.png`
 - **Top Breadcrumbs & Toolbar:**
   - Breadcrumb navigation: `Documents > <Filename>`.
   - Actions: `Download`, `Delete`, `Open in Chat`.
@@ -84,7 +84,7 @@ All page layouts adhere to strict typographic hierarchy, responsive sidebars, cu
   - Deep chunk inspection tabs: `Details`, `Chunks`, `Related`.
   - Chunk boundaries viewer showing token count, section headers, character offsets, and vector dimensions.
 
-### 3.4 Evaluation Suite (`/evaluation`) — Matching `documind_evaluation_page.png`
+### 3.4 Evaluation Suite (`/evaluation`) - Matching `documind_evaluation_page.png`
 - **Benchmark Header:**
   - Title and comparative description.
   - `Run Evaluation` action button with live progress indicator.

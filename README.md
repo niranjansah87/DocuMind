@@ -1,8 +1,8 @@
-# DocuMind — Production-Hardened Document Assistant
+# DocuMind - Production-Hardened Document Assistant
 
 DocuMind is an enterprise-grade, document-grounded question-and-answer assistant built for VanarX Tech. It combines a Next.js 16 frontend faithfully reproducing 4 reference designs, a modular FastAPI backend, PostgreSQL with pgvector, an OpenAI-compatible model adapter, and controlled database tools.
 
-> **Production Hardening Status — Complete, Verified, and Audited:**
+> **Production Hardening Status - Complete, Verified, and Audited:**
 > - **Branch:** `feature/documind-production-hardening`
 > - **Backend Test Suite:** 50 automated tests passing (`pytest`, `ruff`, strict `mypy`).
 > - **Frontend Build:** All 8 static and dynamic Next.js routes compiled cleanly with Turbopack (0 lint errors, 0 type errors).
@@ -332,4 +332,4 @@ npm run build
   - [Hardening Risk Register](docs/operations/RISKS.md)
 
 ---
-*DocuMind — Enterprise-Ready Document AI Assistant. Hardened, Authenticated, and Production-Verified.*
+*DocuMind - Enterprise-Ready Document AI Assistant. Hardened, Authenticated, and Production-Verified.*

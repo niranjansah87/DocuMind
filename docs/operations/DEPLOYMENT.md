@@ -1,4 +1,4 @@
-# Deployment and Operations Guide — DocuMind
+# Deployment and Operations Guide - DocuMind
 
 This document details operations, local setup (with and without Docker), and production deployment for **DocuMind**.
 

@@ -11,7 +11,7 @@ export default function NotFound() {
 
         <div className="space-y-2">
           <span className="text-xs font-mono font-medium uppercase tracking-widest text-indigo-400">
-            404 — Page Not Found
+            404 - Page Not Found
           </span>
           <h1 className="text-xl font-semibold tracking-tight text-white">
             Requested Resource Missing

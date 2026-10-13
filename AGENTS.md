@@ -1,4 +1,4 @@
-# AGENTS.md — Repository-Wide Agent Instructions
+# AGENTS.md - Repository-Wide Agent Instructions
 
 ## 1. Project context
 

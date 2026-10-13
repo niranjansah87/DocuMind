@@ -1,4 +1,4 @@
-# CLAUDE.md — DocuMind Engineering Instructions
+# CLAUDE.md - DocuMind Engineering Instructions
 
 ## Mission
 

@@ -455,32 +455,32 @@ export default function DocumentDetailPage() {
               </div>
             </div>
 
-            {/* Chunking Configuration — from live AppMeta */}
+            {/* Chunking Configuration - from live AppMeta */}
             <div className="inspector-group-card">
               <h4 className="group-heading">Chunking Configuration</h4>
               <div className="kv-grid">
                 <div className="kv-row">
                   <span className="kv-label">Chunk size</span>
                   <span className="kv-value">
-                    {document?.chunk_size_tokens ?? meta?.chunk_size_tokens ?? "—"} tokens
+                    {document?.chunk_size_tokens ?? meta?.chunk_size_tokens ?? "-"} tokens
                   </span>
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">Overlap</span>
                   <span className="kv-value">
-                    {document?.overlap_tokens ?? meta?.chunk_overlap_tokens ?? "—"} tokens
+                    {document?.overlap_tokens ?? meta?.chunk_overlap_tokens ?? "-"} tokens
                   </span>
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">Embedding model</span>
-                  <span className="kv-value">{meta?.embedding_model ?? "—"}</span>
+                  <span className="kv-value">{meta?.embedding_model ?? "-"}</span>
                 </div>
                 <div className="kv-row">
                   <span className="kv-label">Vector dimension</span>
                   <span className="kv-value">
                     {meta?.embedding_dimensions != null
                       ? meta.embedding_dimensions.toLocaleString()
-                      : "—"}
+                      : "-"}
                   </span>
                 </div>
               </div>

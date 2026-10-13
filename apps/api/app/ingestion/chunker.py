@@ -17,7 +17,7 @@ class TextChunk:
 def _find_sections(text: str) -> list[tuple[int, str]]:
     sections: list[tuple[int, str]] = []
     pattern = re.compile(
-        r"^(?:#{1,6}\s+(.+)|([0-9]+\.[0-9]*\s+.+)|([A-Z][A-Za-z0-9 ,/–—-]+))\s*$",
+        r"^(?:#{1,6}\s+(.+)|([0-9]+\.[0-9]*\s+.+)|([A-Z][A-Za-z0-9 ,/–--]+))\s*$",
         re.MULTILINE,
     )
     for match in pattern.finditer(text):

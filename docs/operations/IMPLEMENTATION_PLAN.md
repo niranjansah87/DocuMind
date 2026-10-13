@@ -8,25 +8,25 @@ DocuMind has been completed as a production-grade modular monolith. Every phase 
 
 ## 2. Completed Phase Matrix
 
-### Phase 0 — Documentation and Decisions
+### Phase 0 - Documentation and Decisions
 - [x] Capture VanarX Tech assignment requirements.
 - [x] Define PRD, SRS, architecture, data model, ADRs, API contract, RAG design, agent tools, security, testing, and evaluation docs.
 - [x] Confirm provider/model names (`text-embedding-3-small`, `gpt-4.1-mini`), token counting method (`tiktoken`), and environment configuration.
 
-### Phase 1 — Scaffold and Infrastructure
+### Phase 1 - Scaffold and Infrastructure
 - [x] Monorepo structure: `apps/api` (FastAPI), `apps/web` (Next.js 16), `data/`, `evaluation/`.
 - [x] PostgreSQL 18 with pgvector extension enabled.
 - [x] Docker Compose setup (`docker-compose.yml`) with automated migrations, seed data, and health checks.
 - [x] `.env.example` template with clear placeholders.
 - [x] Structured request IDs, standardized error envelope, and `/health`, `/ready` endpoints.
 
-### Phase 2 — Database and Seed Data
+### Phase 2 - Database and Seed Data
 - [x] Relational schema: `documents`, `document_chunks`, `orders`, `support_tickets`, `pending_actions`.
 - [x] Vector indexes: IVFFlat / HNSW vector index on `document_chunks.embedding` (1536 dims).
 - [x] Seed data: repeatable order dataset (`ORD-1001`, `ORD-1002`, `ORD-1003`) and sample customer policy.
 - [x] Database constraints and foreign key cascading.
 
-### Phase 3 — Ingestion Pipeline
+### Phase 3 - Ingestion Pipeline
 - [x] Accept PDF and TXT with server-side size and MIME validation (`MAX_UPLOAD_BYTES`).
 - [x] SHA-256 byte-hash deduplication within owner scope.
 - [x] Page-aware text extraction (`pypdf`) preserving `page_start`, `page_end`, and `section_title`.
@@ -34,7 +34,7 @@ DocuMind has been completed as a production-grade modular monolith. Every phase 
 - [x] Batched OpenAI embedding generation with retry/backoff.
 - [x] Safe persistence into PostgreSQL and pgvector.
 
-### Phase 4 — RAG and Grounded Generation
+### Phase 4 - RAG and Grounded Generation
 - [x] Cosine distance vector search in pgvector with scope filtering.
 - [x] Hybrid retrieval combining vector similarity with PostgreSQL full-text search using Reciprocal Rank Fusion (RRF).
 - [x] Calibrated similarity threshold (`0.35`) favoring explicit abstention over hallucination.
@@ -43,7 +43,7 @@ DocuMind has been completed as a production-grade modular monolith. Every phase 
 - [x] Explicit abstention on unsupported/unknown questions (`"I don't know based on the available documents."`).
 - [x] Real-time Server-Sent Events (SSE) streaming (`status`, `token`, `citations`, `done`, `error`).
 
-### Phase 5 — Router and Controlled Agent Tools
+### Phase 5 - Router and Controlled Agent Tools
 - [x] Deterministic intent routing (order regex patterns routed to DB tool; general questions routed to RAG).
 - [x] `search_docs` tool: authorized document search.
 - [x] `get_order_status` tool: PostgreSQL database lookup with ownership authorization; returns `{found: false}` on missing orders without fabrication.
@@ -51,7 +51,7 @@ DocuMind has been completed as a production-grade modular monolith. Every phase 
 - [x] Single-use token and 600s TTL expiry with replay prevention (`409 CONFIRMATION_ALREADY_USED`).
 - [x] Bounded steps, timeouts, and fallback model configuration.
 
-### Phase 6 — Frontend Design Realization
+### Phase 6 - Frontend Design Realization
 - [x] 100% faithful reproduction of 4 reference designs in `design/`:
   - `Documind_workspace.png` → `/` (Workspace, Chat, Inline Citations, Right Sources Inspector, Ticket Modal).
   - `documind_documents_page.png` → `/documents` (Banner, Filter Pills, Documents Table, Slide-out Drawer).
@@ -61,7 +61,7 @@ DocuMind has been completed as a production-grade modular monolith. Every phase 
 - [x] Brand identity assets copied to `apps/web/public/` (`logo.png`, `logo_mark.png`, `favicon.ico`).
 - [x] Zero TypeScript errors (`tsc --noEmit`), zero ESLint warnings, Next.js production build passing.
 
-### Phase 7 — Evaluation, Testing, and Verification
+### Phase 7 - Evaluation, Testing, and Verification
 - [x] Complete 15-question gold benchmark executed comparing 300 vs 800 token chunks across Vector and Hybrid retrieval.
 - [x] 800 tokens with Hybrid retrieval established as optimal (100% recall, 100% supported, 1591ms mean latency).
 - [x] Full backend test suite passing (`pytest` 25/25 passed).

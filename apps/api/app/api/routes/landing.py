@@ -15,7 +15,7 @@ async def landing_page() -> HTMLResponse:
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DocuMind API — Document Intelligence & Agentic RAG</title>
+  <title>DocuMind API - Document Intelligence & Agentic RAG</title>
   <style>
     :root {{
       --bg: #090d16;

@@ -1,4 +1,4 @@
-# DocuMind — Production Deployment Guide
+# DocuMind - Production Deployment Guide
 
 This folder contains the production provisioning and deployment automation for DocuMind on Linux (Ubuntu 22.04/24.04 or Debian 12).
 
