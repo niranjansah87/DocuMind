@@ -106,7 +106,7 @@ export default function LoginPage() {
         setTenantId(verified.owner_id, remember);
       }
 
-      toast.success("Workspace credentials verified and connected!", {
+      toast.success("Workspace credentials verified and connected.", {
         id: "auth-success",
       });
       router.push("/");
@@ -135,7 +135,7 @@ export default function LoginPage() {
       clearAuthToken();
     }
     setTenantId(DEFAULT_DEMO_TENANT, true);
-    toast.success("Connected to Reviewer Demo scope!", {
+    toast.success("Connected to Reviewer Demo scope.", {
       id: "demo-success",
     });
     router.push("/");
