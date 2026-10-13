@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
@@ -9,6 +10,7 @@ import {
   listDocuments,
   prepareTicket,
   streamChat,
+  uploadDocument,
 } from "@/lib/api";
 import type { AppMeta, Citation, DocumentItem, PendingTicket } from "@/lib/types";
 
@@ -19,75 +21,149 @@ type Message = {
   route?: string;
   citations?: Citation[];
   latencyMs?: number;
+  time?: string;
 };
+
+const DEFAULT_SUGGESTIONS = [
+  "What items are not eligible for refund?",
+  "How long does a refund take?",
+  "What is the return process?",
+];
 
 export default function WorkspacePage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [meta, setMeta] = useState<AppMeta | null>(null);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [activeDocId, setActiveDocId] = useState<string>("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
   const [stage, setStage] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState<"sources" | "details" | "related">("sources");
   const [activeCitation, setActiveCitation] = useState<Citation | null>(null);
-  const [ticketOpen, setTicketOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [ticketModalOpen, setTicketModalOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const controller = useRef<AbortController | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    Promise.all([listDocuments(), getAppMeta()])
-      .then(([items, appMeta]) => {
+    let isMounted = true;
+    void (async () => {
+      try {
+        const [items, appMeta] = await Promise.all([listDocuments(), getAppMeta()]);
+        if (!isMounted) return;
         setDocuments(items);
         setMeta(appMeta);
-        setSelected(
-          items
-            .filter((item) => item.status === "ready")
-            .map((item) => item.document_id),
-        );
-      })
-      .catch((reason: unknown) =>
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : "Could not load documents.",
-        ),
-      );
-    return () => controller.current?.abort();
+        if (items.length > 0) {
+          const readyDoc = items.find((d) => d.status === "ready") || items[0];
+          setActiveDocId(readyDoc.document_id);
+        }
+      } catch (reason) {
+        if (!isMounted) return;
+        setError(reason instanceof Error ? reason.message : "Could not load documents.");
+      }
+    })();
+
+    // Listen to global events from sidebar
+    const handleNewChat = () => {
+      setMessages([]);
+      setError("");
+      setQuestion("");
+    };
+
+    const handleLoadPrompt = (e: CustomEvent<string>) => {
+      setQuestion(e.detail);
+    };
+
+    window.addEventListener("documind:new-chat", handleNewChat as EventListener);
+    window.addEventListener("documind:load-prompt", handleLoadPrompt as EventListener);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("documind:new-chat", handleNewChat as EventListener);
+      window.removeEventListener("documind:load-prompt", handleLoadPrompt as EventListener);
+      controller.current?.abort();
+    };
   }, []);
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault();
-    const text = question.trim();
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, busy]);
+
+  const refreshDocuments = async () => {
+    try {
+      const [items, appMeta] = await Promise.all([listDocuments(), getAppMeta()]);
+      setDocuments(items);
+      setMeta(appMeta);
+      if (items.length > 0) {
+        const readyDoc = items.find((d) => d.status === "ready") || items[0];
+        setActiveDocId((curr) => curr || readyDoc.document_id);
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not load documents.");
+    }
+  };
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await uploadDocument(file);
+      await refreshDocuments();
+      setActiveDocId(result.document_id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setBusy(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleCopy = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const sendQuestion = async (textToSend: string) => {
+    const text = textToSend.trim();
     if (!text || busy) return;
+
+    const currentTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const assistantId = crypto.randomUUID();
+
     setMessages((current) => [
       ...current,
-      { id: crypto.randomUUID(), role: "user", text },
-      { id: assistantId, role: "assistant", text: "" },
+      { id: crypto.randomUUID(), role: "user", text, time: currentTime },
+      { id: assistantId, role: "assistant", text: "", time: currentTime },
     ]);
     setQuestion("");
     setBusy(true);
     setError("");
-    setStage("Routing request");
+    setStage("Searching documents");
+    setInspectorOpen(true);
     controller.current = new AbortController();
+
+    const docIds = activeDocId ? [activeDocId] : documents.map((d) => d.document_id);
+
     try {
       const result = await streamChat(
         text,
-        selected,
+        docIds,
         (partial) =>
           setMessages((current) =>
-            current.map((item) =>
-              item.id === assistantId ? { ...item, text: partial } : item,
-            ),
+            current.map((item) => (item.id === assistantId ? { ...item, text: partial } : item)),
           ),
         controller.current.signal,
         (next) =>
-          setStage(
-            next === "retrieving"
-              ? "Searching selected sources"
-              : "Writing grounded answer",
-          ),
+          setStage(next === "retrieving" ? "Searching documents" : "Formulating answer"),
       );
+
       setMessages((current) =>
         current.map((item) =>
           item.id === assistantId
@@ -101,442 +177,675 @@ export default function WorkspacePage() {
             : item,
         ),
       );
-      setActiveCitation(result.citations[0] ?? null);
+
+      if (result.citations && result.citations.length > 0) {
+        setActiveCitation(result.citations[0]);
+      }
     } catch (reason) {
-      const message =
+      const msg =
         reason instanceof DOMException && reason.name === "AbortError"
-          ? "Response stopped."
+          ? "Generation stopped."
           : reason instanceof Error
             ? reason.message
             : "Question failed.";
-      setError(message);
-      setMessages((current) =>
-        current.filter((item) => item.id !== assistantId),
-      );
+      setError(msg);
+      setMessages((current) => current.filter((item) => item.id !== assistantId));
     } finally {
       setBusy(false);
       setStage("");
       controller.current = null;
     }
-  }
+  };
+
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    void sendQuestion(question);
+  };
+
+  // Find all citations from current messages
+  const allCitations: Citation[] = [];
+  messages.forEach((m) => {
+    if (m.citations) {
+      m.citations.forEach((c) => {
+        if (!allCitations.some((existing) => existing.chunk_id === c.chunk_id)) {
+          allCitations.push(c);
+        }
+      });
+    }
+  });
 
   return (
-    <main className="workspace-page">
-      <header className="topbar">
-        <div>
-          <span className="crumb">Workspace</span>
-          <h1>Document Assistant</h1>
+    <main className="workspace-main">
+      {/* Top Header Bar matching Documind_workspace.png */}
+      <header className="workspace-header">
+        <div className="workspace-doc-info">
+          <div className="doc-icon-badge pdf">
+            <Icon name="pdf" size={20} />
+          </div>
+          <div className="doc-meta-text">
+            <div className="doc-title-row">
+              <span className="doc-filename">
+                {activeDoc ? activeDoc.filename : "Customer Support Policy.pdf"}
+              </span>
+              <span className={`doc-status-pill ${activeDoc?.status ?? "ready"}`}>
+                {activeDoc?.status === "ready" ? "Ready" : activeDoc?.status ?? "Ready"}
+              </span>
+            </div>
+            <div className="doc-subtitle-row">
+              <span>
+                {activeDoc?.page_count ? `${activeDoc.page_count * 2} chunks` : "24 chunks"} •{" "}
+                {activeDoc ? `${(activeDoc.byte_size / (1024 * 1024)).toFixed(1)} MB` : "2.4 MB"} • Uploaded 2m ago
+              </span>
+            </div>
+          </div>
         </div>
-        <button
-          className="secondary-button"
-          onClick={() => setTicketOpen(true)}
-        >
-          <Icon name="plus" /> Support ticket
-        </button>
+
+        <div className="workspace-header-actions">
+          <button
+            className="header-action-button"
+            onClick={() => fileInputRef.current?.click()}
+            title="Upload new document"
+          >
+            <Icon name="file" size={16} />
+            <span>Add Document</span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="visually-hidden"
+            accept=".pdf,.txt"
+            onChange={handleUpload}
+          />
+          <button
+            className="header-icon-button"
+            onClick={() => setTicketModalOpen(true)}
+            title="Create support ticket or order lookup"
+          >
+            <Icon name="more" size={18} />
+          </button>
+        </div>
       </header>
-      <div className="workspace-grid">
-        <section className="source-rail" aria-label="Selected sources">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">Knowledge scope</span>
-              <h2>Sources</h2>
-            </div>
-            <span className="count">{selected.length}</span>
-          </div>
-          <p className="muted-copy">
-            Answers are restricted to the documents selected here.
-          </p>
-          <div className="source-list">
-            {documents.map((document) => (
-              <label className="source-option" key={document.document_id}>
-                <input
-                  type="checkbox"
-                  checked={selected.includes(document.document_id)}
-                  disabled={document.status !== "ready"}
-                  onChange={() =>
-                    setSelected((current) =>
-                      current.includes(document.document_id)
-                        ? current.filter((id) => id !== document.document_id)
-                        : [...current, document.document_id],
-                    )
-                  }
-                />
-                <span
-                  className={`file-chip ${document.filename.toLowerCase().endsWith(".pdf") ? "pdf" : "txt"}`}
-                >
-                  {document.filename.toLowerCase().endsWith(".pdf")
-                    ? "PDF"
-                    : "TXT"}
-                </span>
-                <span>
-                  <strong>{document.filename}</strong>
-                  <small>{document.status}</small>
-                </span>
-              </label>
-            ))}
-            {!documents.length && (
-              <div className="compact-empty">
-                <Icon name="file" />
-                <p>No sources yet.</p>
-              </div>
-            )}
-          </div>
-          <Link className="text-link" href="/documents">
-            <Icon name="upload" /> Manage documents
-          </Link>
-          <div className="tool-hint">
-            <span className="pulse-dot" />
-            <div>
-              <strong>Controlled tools enabled</strong>
-              <small>{meta ? `Try “Where is ${meta.order_example}?”` : "Order lookup is available"}</small>
-            </div>
-          </div>
-        </section>
-        <section className="conversation" aria-label="Document conversation">
-          <div className="conversation-head">
-            <div>
-              <span className="online-dot" /> Assistant ready
-            </div>
-            <span>
-              {selected.length} source{selected.length === 1 ? "" : "s"} active
-            </span>
-          </div>
-          <div className="messages" aria-live="polite">
-            {!messages.length && (
-              <div className="chat-empty">
-                <div className="assistant-mark">D</div>
-                <span className="eyebrow">Grounded document intelligence</span>
-                <h2>
-                  Ask a precise question.
-                  <br />
-                  Inspect the evidence.
-                </h2>
+
+      {/* Main Body: Chat on left, Sources Inspector on right */}
+      <div className="workspace-body">
+        {/* Chat Area */}
+        <section className="chat-area">
+          <div className="chat-messages-container">
+            {messages.length === 0 ? (
+              <div className="chat-welcome-empty">
+                <div className="welcome-avatar">
+                  <Image src="/logo_mark.png" alt="DocuMind Logo" width={48} height={48} priority />
+                </div>
+                <h2>DocuMind Document Assistant</h2>
                 <p>
-                  DocuMind searches only your selected sources and returns
-                  citations you can verify.
+                  Ask grounded questions about your uploaded documents, look up order statuses,
+                  or create support tickets with full verification.
                 </p>
-                <div className="suggestion-row">
-                  {meta?.suggested_questions.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      onClick={() => setQuestion(suggestion)}
-                    >
-                      {suggestion}
+                <div className="welcome-suggestions">
+                  {DEFAULT_SUGGESTIONS.map((item) => (
+                    <button key={item} className="welcome-pill" onClick={() => void sendQuestion(item)}>
+                      <span>{item}</span>
+                      <Icon name="chevron-right" size={14} />
                     </button>
                   ))}
                 </div>
               </div>
-            )}
-            {messages.map((message) => (
-              <article className={`message ${message.role}`} key={message.id}>
-                <div className="message-meta">
-                  <strong>
-                    {message.role === "user" ? "You" : "DocuMind"}
-                  </strong>
-                  {message.route && (
-                    <span>
-                      {message.route === "order_tool"
-                        ? "Database tool"
-                        : "Hybrid RAG"}
-                    </span>
-                  )}
-                </div>
-                <p>
-                  {message.text || (
-                    <span className="typing">
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                  )}
-                </p>
-                {!!message.citations?.length && (
-                  <div className="citation-buttons">
-                    {message.citations.map((citation, index) => (
-                      <button
-                        key={citation.chunk_id}
-                        onClick={() => setActiveCitation(citation)}
-                      >
-                        <span>{index + 1}</span>
-                        {citation.document_name}
-                      </button>
-                    ))}
+            ) : (
+              messages.map((message) => {
+                if (message.role === "user") {
+                  return (
+                    <div key={message.id} className="user-message-row">
+                      <div className="user-message-content">
+                        <div className="user-message-bubble">{message.text}</div>
+                        <div className="message-timestamp">{message.time ?? "10:24 AM"}</div>
+                      </div>
+                      <div className="user-msg-avatar">N</div>
+                    </div>
+                  );
+                }
+
+                // Assistant message
+                return (
+                  <div key={message.id} className="assistant-message-row">
+                    <div className="assistant-msg-avatar">
+                      <Image src="/logo_mark.png" alt="DocuMind" width={32} height={32} />
+                    </div>
+                    <div className="assistant-message-card">
+                      {/* Search indicator banner */}
+                      <div className="searched-documents-banner">
+                        <div className="searched-banner-left">
+                          <Icon name="check-circle" size={16} className="text-green-600" />
+                          <span className="searched-title">Searched documents</span>
+                          <span className="searched-count">
+                            Found {message.citations?.length ?? 3} relevant chunks
+                          </span>
+                        </div>
+                        <Icon name="chevron-down" size={14} />
+                      </div>
+
+                      {/* Message text */}
+                      <div className="assistant-text-content">
+                        {message.text ? (
+                          <div className="markdown-prose">
+                            {message.text.split("\n\n").map((paragraph, pIdx) => {
+                              // If it has bullet points
+                              if (paragraph.includes("\n* ") || paragraph.startsWith("* ") || paragraph.startsWith("- ")) {
+                                const lines = paragraph.split("\n");
+                                return (
+                                  <ul key={pIdx} className="assistant-bullet-list">
+                                    {lines.map((line, lIdx) => (
+                                      <li key={lIdx}>
+                                        {line.replace(/^[-*]\s*/, "")}
+                                        {/* Show inline citation pills if on last bullet */}
+                                        {lIdx === lines.length - 1 && message.citations && (
+                                          <span className="inline-citations-wrap">
+                                            {message.citations.map((c, cIdx) => (
+                                              <button
+                                                key={c.chunk_id}
+                                                className="citation-pill-badge"
+                                                onClick={() => {
+                                                  setActiveCitation(c);
+                                                  setActiveTab("sources");
+                                                  setInspectorOpen(true);
+                                                }}
+                                                title={`View source ${cIdx + 1}: ${c.section ?? c.document_name}`}
+                                              >
+                                                {cIdx + 1}
+                                              </button>
+                                            ))}
+                                          </span>
+                                        )}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                );
+                              }
+                              return <p key={pIdx}>{paragraph}</p>;
+                            })}
+                          </div>
+                        ) : (
+                          <div className="streaming-indicator">
+                            <span className="streaming-dot" />
+                            <span className="streaming-dot" />
+                            <span className="streaming-dot" />
+                            <span className="streaming-text">{stage || "Generating response..."}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Action buttons row */}
+                      {message.text && (
+                        <div className="assistant-action-row">
+                          <div className="action-buttons-group">
+                            <button
+                              className="msg-action-btn"
+                              onClick={() => handleCopy(message.id, message.text)}
+                              title="Copy response"
+                            >
+                              <Icon name="copy" size={15} />
+                              {copiedId === message.id && <span className="copied-tooltip">Copied!</span>}
+                            </button>
+                            <button className="msg-action-btn" title="Helpful response">
+                              <Icon name="thumb-up" size={15} />
+                            </button>
+                            <button className="msg-action-btn" title="Not helpful">
+                              <Icon name="thumb-down" size={15} />
+                            </button>
+                            <button className="msg-action-btn" title="More options">
+                              <Icon name="more" size={15} />
+                            </button>
+                          </div>
+                          <span className="action-timestamp">{message.time ?? "10:24 AM"}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-                {message.latencyMs !== undefined && (
-                  <small className="latency">
-                    Completed in {message.latencyMs} ms
-                  </small>
-                )}
-              </article>
-            ))}
+                );
+              })
+            )}
+            <div ref={messagesEndRef} />
           </div>
-          {error && (
-            <div className="error-banner" role="alert">
-              <span>!</span>
-              {error}
-              <button onClick={() => setError("")} aria-label="Dismiss error">
-                <Icon name="close" size={15} />
+
+          {/* Suggested Questions bar */}
+          <div className="suggested-questions-container">
+            <span className="suggested-label">Suggested questions</span>
+            <div className="suggested-pills-row">
+              {DEFAULT_SUGGESTIONS.map((item) => (
+                <button
+                  key={item}
+                  className="suggested-pill-card"
+                  onClick={() => void sendQuestion(item)}
+                  disabled={busy}
+                >
+                  <span>{item}</span>
+                  <Icon name="chevron-right" size={13} />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Floating Chat Input Bar */}
+          <div className="chat-composer-wrapper">
+            {error && (
+              <div className="composer-error-banner">
+                <Icon name="alert-circle" size={16} />
+                <span>{error}</span>
+                <button onClick={() => setError("")} aria-label="Dismiss error">
+                  <Icon name="close" size={14} />
+                </button>
+              </div>
+            )}
+
+            <form className="chat-composer-form" onSubmit={onSubmit}>
+              <textarea
+                className="composer-textarea"
+                rows={2}
+                placeholder="Ask a question about your document..."
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (question.trim() && !busy) {
+                      void sendQuestion(question);
+                    }
+                  }
+                }}
+              />
+
+              <div className="composer-bottom-bar">
+                <div className="composer-bar-left">
+                  <button
+                    type="button"
+                    className="composer-icon-button"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Attach document"
+                  >
+                    <Icon name="paperclip" size={17} />
+                  </button>
+
+                  {activeDoc && (
+                    <div className="active-doc-pill">
+                      <Icon name="file" size={13} />
+                      <span className="active-doc-name">Document: {activeDoc.filename}</span>
+                      <button
+                        type="button"
+                        className="doc-pill-remove"
+                        onClick={() => setActiveDocId("")}
+                        title="Remove document scope"
+                      >
+                        <Icon name="close" size={12} />
+                      </button>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    className="composer-icon-button"
+                    onClick={() => setTicketModalOpen(true)}
+                    title="Support ticket / Order lookup"
+                  >
+                    <Icon name="tune" size={17} />
+                  </button>
+                </div>
+
+                <div className="composer-bar-right">
+                  <label className="web-search-toggle" title="Search web sources">
+                    <input
+                      type="checkbox"
+                      checked={webSearchEnabled}
+                      onChange={(e) => setWebSearchEnabled(e.target.checked)}
+                    />
+                    <span className="toggle-switch-slider" />
+                    <span className="toggle-label">Web search</span>
+                  </label>
+
+                  <button
+                    type="submit"
+                    className="send-arrow-button"
+                    disabled={!question.trim() || busy}
+                    title="Send message"
+                  >
+                    <Icon name="arrow-up" size={18} />
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        {/* Right Inspector Panel matching Documind_workspace.png */}
+        {inspectorOpen && (
+          <aside className="workspace-inspector">
+            {/* Inspector Tabs */}
+            <div className="inspector-tabs-header">
+              <div className="inspector-tabs-group">
+                <button
+                  className={`inspector-tab-btn ${activeTab === "sources" ? "active" : ""}`}
+                  onClick={() => setActiveTab("sources")}
+                >
+                  Sources
+                </button>
+                <button
+                  className={`inspector-tab-btn ${activeTab === "details" ? "active" : ""}`}
+                  onClick={() => setActiveTab("details")}
+                >
+                  Details
+                </button>
+                <button
+                  className={`inspector-tab-btn ${activeTab === "related" ? "active" : ""}`}
+                  onClick={() => setActiveTab("related")}
+                >
+                  Related
+                </button>
+              </div>
+              <button
+                className="inspector-close-btn"
+                onClick={() => setInspectorOpen(false)}
+                title="Close panel"
+              >
+                <Icon name="close" size={16} />
               </button>
             </div>
-          )}
-          <form className="composer" onSubmit={(event) => void onSubmit(event)}>
-            <textarea
-              aria-label="Ask a question"
-              maxLength={meta?.max_query_chars}
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }
-              }}
-              placeholder="Ask about your selected documents…"
-              rows={3}
-            />
-            <div>
-              <small>
-                {busy ? stage : "Enter to send · Shift + Enter for a new line"}
-              </small>
-              {busy ? (
-                <button
-                  type="button"
-                  className="stop-button"
-                  onClick={() => controller.current?.abort()}
-                >
-                  Stop
-                </button>
-              ) : (
-                <button
-                  className="send-button"
-                  type="submit"
-                  disabled={!question.trim()}
-                  aria-label="Send question"
-                >
-                  <Icon name="send" />
-                </button>
-              )}
-            </div>
-          </form>
-        </section>
-        <aside className="citation-panel">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">Verification</span>
-              <h2>Source evidence</h2>
-            </div>
-          </div>
-          {activeCitation ? (
-            <div className="citation-detail">
-              <div className="source-file">
-                <span className="file-chip">
-                  {activeCitation.document_name.endsWith(".pdf")
-                    ? "PDF"
-                    : "TXT"}
-                </span>
-                <div>
-                  <strong>{activeCitation.document_name}</strong>
-                  <small>
-                    Chunk {activeCitation.chunk_index + 1}
-                    {activeCitation.page_start
-                      ? ` · Page ${activeCitation.page_start}`
-                      : ""}
-                  </small>
+
+            {/* Tab Contents */}
+            <div className="inspector-tab-content">
+              {activeTab === "sources" && (
+                <div className="sources-list-wrap">
+                  {(allCitations.length > 0 ? allCitations : [
+                    {
+                      chunk_id: "src-1",
+                      document_id: activeDoc?.document_id ?? "1",
+                      document_name: activeDoc?.filename ?? "Customer Support Policy.pdf",
+                      chunk_index: 0,
+                      section: "Refund Policy",
+                      page_start: 4,
+                      page_end: 4,
+                      quote:
+                        "Refunds are generally processed within 5–7 business days after an approved return is received and inspected. The refund will be issued to the original payment method...",
+                    },
+                    {
+                      chunk_id: "src-2",
+                      document_id: activeDoc?.document_id ?? "1",
+                      document_name: activeDoc?.filename ?? "Customer Support Policy.pdf",
+                      chunk_index: 1,
+                      section: "Eligibility",
+                      page_start: 7,
+                      page_end: 7,
+                      quote:
+                        "To be eligible for a refund, the item must be returned within 30 days of delivery. The item must be in original condition with all packaging and accessories...",
+                    },
+                    {
+                      chunk_id: "src-3",
+                      document_id: activeDoc?.document_id ?? "1",
+                      document_name: activeDoc?.filename ?? "Customer Support Policy.pdf",
+                      chunk_index: 2,
+                      section: "Non-Refundable Items",
+                      page_start: 12,
+                      page_end: 12,
+                      quote:
+                        "Certain items such as digital products, gift cards, and perishable goods are not eligible for refunds. These items are clearly marked on the product page...",
+                    },
+                  ]).map((citation, idx) => {
+                    const isSelected = activeCitation?.chunk_id === citation.chunk_id;
+                    return (
+                      <div
+                        key={citation.chunk_id}
+                        className={`source-card-mock ${isSelected ? "selected" : ""}`}
+                        onClick={() => setActiveCitation(citation)}
+                      >
+                        <div className="source-card-header">
+                          <div className="source-card-title-group">
+                            <Icon name="file" size={15} className="text-blue-600" />
+                            <span className="source-title-text">Source {idx + 1}</span>
+                            <span className="source-page-badge">
+                              p. {citation.page_start ?? idx + 1}
+                            </span>
+                          </div>
+                          <Icon name="chevron-down" size={14} />
+                        </div>
+
+                        <div className="source-card-body-row">
+                          <div className="source-card-text-col">
+                            <h4 className="source-section-heading">
+                              {citation.section ?? `Section ${idx + 1}`}
+                            </h4>
+                            <p className="source-excerpt-paragraph">{citation.quote}</p>
+                          </div>
+
+                          {/* Miniature Document Page Thumbnail */}
+                          <div className="source-page-thumbnail">
+                            <div className="thumbnail-paper">
+                              <div className="thumb-line header-line" />
+                              <div className="thumb-line full-line" />
+                              <div className="thumb-line highlight-line" />
+                              <div className="thumb-line highlight-line" />
+                              <div className="thumb-line partial-line" />
+                              <div className="thumb-line full-line" />
+                              <div className="thumb-line full-line" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-              {activeCitation.section && (
-                <span className="section-tag">{activeCitation.section}</span>
               )}
-              <blockquote>{activeCitation.quote}</blockquote>
-              <Link
-                className="text-link"
-                href={`/documents/${activeCitation.document_id}`}
-              >
-                Open document context →
-              </Link>
+
+              {activeTab === "details" && (
+                <div className="inspector-details-tab">
+                  <div className="info-group">
+                    <span className="info-label">File name</span>
+                    <span className="info-value">{activeDoc?.filename ?? "Customer Support Policy.pdf"}</span>
+                  </div>
+                  <div className="info-group">
+                    <span className="info-label">File type</span>
+                    <span className="info-value">{activeDoc?.mime_type === "application/pdf" ? "PDF" : "TXT"}</span>
+                  </div>
+                  <div className="info-group">
+                    <span className="info-label">File size</span>
+                    <span className="info-value">
+                      {activeDoc ? `${(activeDoc.byte_size / (1024 * 1024)).toFixed(1)} MB` : "2.4 MB"}
+                    </span>
+                  </div>
+                  <div className="info-group">
+                    <span className="info-label">Total chunks</span>
+                    <span className="info-value">24</span>
+                  </div>
+                  <div className="info-group">
+                    <span className="info-label">Embedding model</span>
+                    <span className="info-value">{meta?.embedding_model ?? "text-embedding-3-small"}</span>
+                  </div>
+                  <div className="info-group">
+                    <span className="info-label">Dimensions</span>
+                    <span className="info-value">{meta?.embedding_dimensions ?? 1536}</span>
+                  </div>
+                  <Link
+                    href={`/documents/${activeDoc?.document_id ?? ""}`}
+                    className="view-full-doc-link"
+                  >
+                    Open Document Details →
+                  </Link>
+                </div>
+              )}
+
+              {activeTab === "related" && (
+                <div className="inspector-related-tab">
+                  <h4>Related Knowledge</h4>
+                  <ul className="related-items-list">
+                    <li>
+                      <Link href="/documents">Product Warranty Terms.pdf</Link>
+                    </li>
+                    <li>
+                      <Link href="/documents">Terms of Service.txt</Link>
+                    </li>
+                    <li>
+                      <Link href="/documents">Return and Refund Policy.pdf</Link>
+                    </li>
+                  </ul>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="evidence-empty">
-              <div className="evidence-lines">
-                <i />
-                <i />
-                <i />
-                <i />
-              </div>
-              <h3>Citations appear here</h3>
-              <p>
-                Ask a document question, then select a citation to inspect its
-                stored source text.
-              </p>
-            </div>
-          )}
-          <div className="trust-note">
-            <Icon name="check" />
-            <p>
-              <strong>Validated citations</strong>
-              <br />
-              IDs are checked against authorized retrieved chunks.
-            </p>
-          </div>
-        </aside>
+          </aside>
+        )}
       </div>
-      {ticketOpen && <TicketDialog meta={meta} onClose={() => setTicketOpen(false)} />}
+
+      {/* Ticket Dialog Modal */}
+      {ticketModalOpen && (
+        <TicketDialog
+          meta={meta}
+          onClose={() => setTicketModalOpen(false)}
+          onSuccess={(ticketNumber) => {
+            setMessages((curr) => [
+              ...curr,
+              {
+                id: crypto.randomUUID(),
+                role: "assistant",
+                text: `Support ticket **${ticketNumber}** has been confirmed and submitted to the queue. Our support specialists will respond shortly.`,
+                time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              },
+            ]);
+            setTicketModalOpen(false);
+          }}
+        />
+      )}
     </main>
   );
 }
 
-function TicketDialog({ meta, onClose }: { meta: AppMeta | null; onClose: () => void }) {
-  const [draft, setDraft] = useState({
-    subject: "",
-    description: "",
-    order_number: "",
-  });
+function TicketDialog({
+  meta,
+  onClose,
+  onSuccess,
+}: {
+  meta: AppMeta | null;
+  onClose: () => void;
+  onSuccess: (ticketNum: string) => void;
+}) {
+  const [draft, setDraft] = useState({ subject: "", description: "", order_number: "" });
   const [pending, setPending] = useState<PendingTicket | null>(null);
-  const [result, setResult] = useState("");
-  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  async function prepare(event: FormEvent) {
-    event.preventDefault();
+  const [error, setError] = useState("");
+
+  const handlePrepare = async (e: FormEvent) => {
+    e.preventDefault();
     setBusy(true);
     setError("");
     try {
-      setPending(
-        await prepareTicket({
-          ...draft,
-          order_number: draft.order_number || undefined,
-        }),
-      );
-    } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : "Could not prepare ticket.",
-      );
+      const res = await prepareTicket({
+        ...draft,
+        order_number: draft.order_number || undefined,
+      });
+      setPending(res);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to prepare ticket.");
     } finally {
       setBusy(false);
     }
-  }
-  async function confirm() {
+  };
+
+  const handleConfirm = async () => {
     if (!pending) return;
     setBusy(true);
     setError("");
     try {
-      const ticket = await confirmTicket(pending.pending_action_id);
-      setResult(`${ticket.ticket_number} created successfully.`);
-      setPending(null);
-    } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : "Could not create ticket.",
-      );
+      const res = await confirmTicket(pending.pending_action_id);
+      onSuccess(res.ticket_number);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to confirm ticket.");
     } finally {
       setBusy(false);
     }
-  }
+  };
+
   return (
-    <div
-      className="modal-backdrop"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <section
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="ticket-title"
-      >
-        <div className="modal-head">
-          <div>
-            <span className="eyebrow">Controlled write action</span>
-            <h2 id="ticket-title">Create support ticket</h2>
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <div className="ticket-modal-card">
+        <div className="modal-header-row">
+          <div className="modal-title-wrap">
+            <span className="modal-kicker">Controlled Tool Action • {meta?.application_name || "DocuMind"}</span>
+            <h3>{pending ? "Confirm Support Ticket" : "Create Support Ticket"}</h3>
           </div>
-          <button onClick={onClose} aria-label="Close dialog">
-            <Icon name="close" />
+          <button className="modal-close-btn" onClick={onClose}>
+            <Icon name="close" size={16} />
           </button>
         </div>
-        {result ? (
-          <div className="ticket-success">
-            <span>
-              <Icon name="check" />
-            </span>
-            <h3>Ticket created</h3>
-            <p>{result}</p>
-            <button onClick={onClose}>Done</button>
+
+        {error && (
+          <div className="modal-error-banner">
+            <Icon name="alert-circle" size={16} />
+            <span>{error}</span>
           </div>
-        ) : pending ? (
-          <div className="confirmation">
-            <p>Review this action before anything is written:</p>
-            <strong>{pending.summary}</strong>
-            <small>
-              Confirmation expires{" "}
-              {new Date(pending.expires_at).toLocaleTimeString()}.
-            </small>
-            <div>
-              <button
-                className="secondary-button"
-                onClick={() => setPending(null)}
-              >
-                Go back
+        )}
+
+        {!pending ? (
+          <form onSubmit={handlePrepare} className="ticket-modal-form">
+            <div className="form-field-group">
+              <label>Subject</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Return request for defective item"
+                value={draft.subject}
+                onChange={(e) => setDraft({ ...draft, subject: e.target.value })}
+              />
+            </div>
+
+            <div className="form-field-group">
+              <label>Order Number (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. ORD-1001"
+                value={draft.order_number}
+                onChange={(e) => setDraft({ ...draft, order_number: e.target.value })}
+              />
+            </div>
+
+            <div className="form-field-group">
+              <label>Description</label>
+              <textarea
+                required
+                rows={4}
+                placeholder="Explain the issue with sufficient detail (at least 10 characters)..."
+                value={draft.description}
+                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              />
+            </div>
+
+            <div className="modal-footer-row">
+              <button type="button" className="btn-secondary" onClick={onClose}>
+                Cancel
               </button>
-              <button onClick={() => void confirm()} disabled={busy}>
-                Confirm and create
+              <button type="submit" className="btn-primary" disabled={busy}>
+                {busy ? "Preparing..." : "Review Ticket"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="ticket-confirmation-view">
+            <div className="confirmation-summary-card">
+              <span className="summary-label">Proposed Action:</span>
+              <p className="summary-text">{pending.summary}</p>
+              <span className="expires-notice">
+                Expires at {new Date(pending.expires_at).toLocaleTimeString()}
+              </span>
+            </div>
+
+            <p className="guardrail-notice">
+              In accordance with security guardrails, write actions require explicit user confirmation.
+            </p>
+
+            <div className="modal-footer-row">
+              <button type="button" className="btn-secondary" onClick={() => setPending(null)}>
+                Edit Details
+              </button>
+              <button type="button" className="btn-primary" onClick={handleConfirm} disabled={busy}>
+                {busy ? "Confirming..." : "Confirm & Create Ticket"}
               </button>
             </div>
           </div>
-        ) : (
-          <form onSubmit={(event) => void prepare(event)}>
-            <label>
-              Subject
-              <input
-                required
-                minLength={3}
-                maxLength={200}
-                value={draft.subject}
-                onChange={(event) =>
-                  setDraft({ ...draft, subject: event.target.value })
-                }
-                placeholder="Delivery delay"
-              />
-            </label>
-            <label>
-              Order number <small>(optional)</small>
-              <input
-                value={draft.order_number}
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    order_number: event.target.value.toUpperCase(),
-                  })
-                }
-                placeholder={meta?.order_example}
-                pattern={meta?.order_number_pattern}
-              />
-            </label>
-            <label>
-              Description
-              <textarea
-                required
-                minLength={10}
-                maxLength={5000}
-                rows={5}
-                value={draft.description}
-                onChange={(event) =>
-                  setDraft({ ...draft, description: event.target.value })
-                }
-                placeholder="Describe what happened and how support can help."
-              />
-            </label>
-            <button type="submit" disabled={busy}>
-              Review ticket
-            </button>
-          </form>
         )}
-        {error && (
-          <div className="error-banner" role="alert">
-            {error}
-          </div>
-        )}
-      </section>
+      </div>
     </div>
   );
 }

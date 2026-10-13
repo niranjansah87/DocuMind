@@ -99,6 +99,27 @@ async def get_document(
     )
 
 
+@router.get("/{document_id}/download")
+async def download_document(
+    document_id: uuid.UUID,
+    owner_id: uuid.UUID = Depends(get_owner_id),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    repository = DocumentRepository(session)
+    document = await repository.get_owned(owner_id, document_id)
+    if not document:
+        raise AppError("DOCUMENT_NOT_FOUND", "The document was not found.", 404)
+    chunks = await repository.list_chunks(owner_id, document_id)
+    text_content = "\n\n".join(chunk.text for chunk in chunks)
+    media_type = "text/plain; charset=utf-8"
+    filename = document.filename if document.filename.endswith(".txt") else f"{document.filename}.txt"
+    return Response(
+        content=text_content.encode("utf-8"),
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.delete("/{document_id}", status_code=204)
 async def delete_document(
     document_id: uuid.UUID,

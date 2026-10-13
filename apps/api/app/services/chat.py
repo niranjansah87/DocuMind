@@ -101,7 +101,11 @@ class ChatService:
         self, raw: str, relevant: list[tuple[Any, Any, float]], started: float
     ) -> ChatResponse:
         try:
-            payload = json.loads(raw)
+            clean_raw = raw.strip()
+            if clean_raw.startswith("```"):
+                clean_raw = re.sub(r"^```(?:json)?\s*", "", clean_raw)
+                clean_raw = re.sub(r"\s*```$", "", clean_raw)
+            payload = json.loads(clean_raw)
             answer = str(payload["answer"]).strip()
             requested_ids = {uuid.UUID(value) for value in payload.get("citation_ids", [])}
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:

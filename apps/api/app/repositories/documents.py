@@ -106,6 +106,7 @@ class DocumentRepository:
         for rank_index, (chunk, document, _) in enumerate(keyword_rows, 1):
             previous = fused.get(chunk.id)
             score = 1 / (60 + rank_index) + (previous[0] if previous else 0)
-            fused[chunk.id] = (score, chunk, document, 0.0)
+            distance = previous[3] if previous else 0.45
+            fused[chunk.id] = (score, chunk, document, distance)
         rows = sorted(fused.values(), key=lambda item: item[0], reverse=True)[:limit]
         return [(chunk, document, distance) for _, chunk, document, distance in rows]

@@ -2,41 +2,153 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import logo from "../../../public/logo.png";
-import { getAppMeta } from "@/lib/api";
-import type { AppMeta } from "@/lib/types";
 import { Icon } from "./icons";
 
-const nav = [
-  { href: "/", label: "Workspace", icon: "chat" as const },
+const navItems = [
+  { href: "/", label: "Chat", icon: "chat" as const },
   { href: "/documents", label: "Documents", icon: "documents" as const },
-  { href: "/evaluation", label: "Evaluation", icon: "evaluation" as const },
+  { href: "/evaluation", label: "Evaluation", icon: "evaluation" as const, badge: "Beta" },
+];
+
+const recentConversations = [
+  { id: "refund-policy", title: "Refund policy details", time: "2m ago", prompt: "What is the refund policy?" },
+  { id: "order-status", title: "Order status ORD-1001", time: "12m ago", prompt: "What is the status of order ORD-1001?" },
+  { id: "support-ticket", title: "Create support ticket", time: "1h ago", prompt: "I need to open a support ticket for my delayed shipment" },
+  { id: "warranty-info", title: "Warranty information", time: "3h ago", prompt: "What is covered by warranty?" },
+  { id: "pricing-plans", title: "Pricing and plans", time: "1d ago", prompt: "What payment methods are supported?" },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [meta, setMeta] = useState<AppMeta | null>(null);
-  useEffect(() => { getAppMeta().then(setMeta).catch(() => undefined); }, []);
+  const router = useRouter();
+  const [activeRecent, setActiveRecent] = useState<string>("refund-policy");
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        router.push("/?new=true");
+        window.dispatchEvent(new CustomEvent("documind:new-chat"));
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [router]);
+
+  const handleNewChat = () => {
+    router.push("/?new=true");
+    window.dispatchEvent(new CustomEvent("documind:new-chat"));
+  };
+
+  const handleSelectRecent = (item: (typeof recentConversations)[number]) => {
+    setActiveRecent(item.id);
+    router.push(`/?prompt=${encodeURIComponent(item.prompt)}`);
+    window.dispatchEvent(new CustomEvent("documind:load-prompt", { detail: item.prompt }));
+  };
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <Link className="logo" href="/" aria-label="DocuMind workspace">
-          <Image src={logo} alt="DocuMind" priority sizes="150px" />
-        </Link>
-        <nav aria-label="Primary navigation">
-          {nav.map((item) => {
+        {/* Top brand header */}
+        <div className="sidebar-header">
+          <Link className="sidebar-brand" href="/" aria-label="DocuMind Home">
+            <Image
+              src="/logo.png"
+              alt="DocuMind"
+              width={132}
+              height={36}
+              priority
+              style={{ objectFit: "contain" }}
+            />
+          </Link>
+          <button className="sidebar-collapse-btn" aria-label="Collapse sidebar" title="Collapse sidebar">
+            <Icon name="chevron-up" size={16} />
+          </button>
+        </div>
+
+        {/* New Chat Button */}
+        <button className="new-chat-button" onClick={handleNewChat} title="Start new chat (Ctrl+K)">
+          <div className="new-chat-label">
+            <Icon name="plus" size={16} />
+            <span>New Chat</span>
+          </div>
+          <span className="shortcut-badge">Ctrl K</span>
+        </button>
+
+        {/* Primary navigation */}
+        <nav className="sidebar-nav" aria-label="Primary navigation">
+          {navItems.map((item) => {
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-            return <Link key={item.href} href={item.href} className={active ? "active" : ""}><Icon name={item.icon} /><span>{item.label}</span></Link>;
+            return (
+              <Link key={item.href} href={item.href} className={`sidebar-nav-link ${active ? "active" : ""}`}>
+                <Icon name={item.icon} size={18} />
+                <span className="sidebar-nav-text">{item.label}</span>
+                {item.badge && <span className="nav-beta-badge">{item.badge}</span>}
+              </Link>
+            );
           })}
         </nav>
-        <div className="sidebar-foot">
-          <div className="scope-badge"><span>DM</span><div><strong>{meta?.workspace_name ?? "Workspace"}</strong><small>{meta?.scope_label ?? ""}</small></div></div>
-          <div className="secure-note"><Icon name="check" size={15} /> Sources stay server-side</div>
+
+        {/* Recent Conversations */}
+        <div className="recent-conversations-section">
+          <div className="recent-heading">RECENT CONVERSATIONS</div>
+          <div className="recent-list">
+            {recentConversations.map((item) => {
+              const isSelected = pathname === "/" && activeRecent === item.id;
+              return (
+                <div
+                  key={item.id}
+                  className={`recent-item ${isSelected ? "selected" : ""}`}
+                  onClick={() => handleSelectRecent(item)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleSelectRecent(item);
+                    }
+                  }}
+                >
+                  <div className="recent-info">
+                    <span className="recent-title">{item.title}</span>
+                    <span className="recent-time">{item.time}</span>
+                  </div>
+                  {isSelected && (
+                    <button
+                      className="recent-menu-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                      aria-label="Conversation options"
+                    >
+                      <Icon name="more" size={14} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Bottom User Profile */}
+        <div className="sidebar-user-footer">
+          <div className="user-profile-card">
+            <div className="user-avatar">N</div>
+            <div className="user-details">
+              <span className="user-name">Niranjan Sah</span>
+              <span className="user-workspace">Personal Workspace</span>
+            </div>
+            <div className="user-dropdown-icon">
+              <Icon name="chevron-down" size={14} />
+            </div>
+          </div>
         </div>
       </aside>
+
       <div className="app-content">{children}</div>
     </div>
   );
 }
+
