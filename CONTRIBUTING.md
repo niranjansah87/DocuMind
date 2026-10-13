@@ -18,12 +18,26 @@ You can run DocuMind locally on Windows, macOS, or Linux using native tools:
 
 ### Prerequisites
 * **Python 3.12+** and [`uv`](https://docs.astral.sh/uv/)
-* **Node.js 22+** and `npm`
+* **Node.js 22+** and [`pnpm`](https://pnpm.io/)
 * **PostgreSQL 16** with the `pgvector` extension enabled (`CREATE EXTENSION IF NOT EXISTS vector;`)
 
-### 1. Backend API (`apps/api`)
+### Quick Start: Run Everything with One Command
+From the repository root:
 ```bash
-# Navigate to API directory
+# Install all dependencies (frontend + dev runner)
+pnpm install
+
+# Run backend (port 8888) and frontend (port 7777) simultaneously
+pnpm dev
+```
+Both services will start concurrently in a single terminal with colored prefixes (`[api]` in magenta, `[web]` in cyan). Pressing `Ctrl+C` cleanly stops both processes.
+
+---
+
+### Running Services Individually
+
+#### 1. Backend API (`apps/api`)
+```bash
 cd apps/api
 
 # Install dependencies into virtualenv
@@ -35,20 +49,19 @@ uv run alembic upgrade head
 # Seed initial test data (sample orders)
 uv run python -m app.seed
 
-# Start development server with hot-reload
+# Start development server on port 8888
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8888 --reload
 ```
 
-### 2. Frontend Web App (`apps/web`)
+#### 2. Frontend Web App (`apps/web`)
 ```bash
-# Navigate to Web directory
 cd apps/web
 
-# Install npm dependencies
-npm ci
+# Install pnpm dependencies
+pnpm install
 
-# Start Next.js development server
-npm run dev
+# Start Next.js development server on port 7777
+pnpm run dev
 ```
 
 The web app is available at `http://localhost:7777` and automatically proxies `/api/*` requests to `http://127.0.0.1:8888` via Next.js internal rewrites.
@@ -58,6 +71,13 @@ The web app is available at `http://localhost:7777` and automatically proxies `/
 ## 3. Engineering Quality Gates
 
 All contributions must pass automated tests, linting, and type checking before a pull request can be accepted.
+
+### Running All Gates from Root
+```bash
+pnpm lint        # Runs ESLint (web) and Ruff (api)
+pnpm typecheck   # Runs tsc (web) and mypy (api)
+pnpm test        # Runs pytest (api) and frontend typecheck
+```
 
 ### Backend Gates
 Run from `apps/api`:
@@ -76,13 +96,13 @@ uv run mypy app
 Run from `apps/web`:
 ```bash
 # 1. Static typecheck
-npm run typecheck
+pnpm run typecheck
 
 # 2. ESLint
-npm run lint
+pnpm run lint
 
 # 3. Production build
-npm run build
+pnpm run build
 ```
 
 ---

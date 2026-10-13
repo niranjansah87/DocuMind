@@ -44,7 +44,7 @@ env_value(){
 
 # 1. Dependency checks
 info "Checking required system commands"
-need git; need python3; need uv; need node; need npm; need curl; need nginx; need systemctl; need dig; need sudo
+need git; need python3; need uv; need node; need pnpm; need curl; need nginx; need systemctl; need dig; need sudo
 
 [[ -d "$APP_ROOT/.git" ]] || die "APP_ROOT is not a git repository: $APP_ROOT"
 [[ -f "$ENV_FILE" ]] || die "Production environment file missing: $ENV_FILE"
@@ -130,10 +130,10 @@ sudo systemctl enable documind-api
 sudo systemctl restart documind-api
 
 # 9. Setup and build frontend
-info "Setting up frontend (npm ci, build)"
+info "Setting up frontend (pnpm install, build)"
 cd "$APP_ROOT/apps/web"
-npm ci
-npm run build
+pnpm install --frozen-lockfile
+pnpm run build
 
 # Install and start frontend systemd service
 sudo install -m 0644 "$APP_ROOT/deploy/systemd/documind-web.service" "/etc/systemd/system/documind-web.service"

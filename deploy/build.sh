@@ -30,7 +30,7 @@ die(){ printf '%s[FAIL]%s %s\n' "$C_R" "$C_0" "$*" >&2; exit 1; }
 trap 'die "update failed at line $LINENO (command: $BASH_COMMAND)"' ERR
 need(){ command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"; }
 
-need git; need python3; need uv; need node; need npm; need sudo; need systemctl; need curl
+need git; need python3; need uv; need node; need pnpm; need sudo; need systemctl; need curl
 
 [[ -d "$APP_ROOT/.git" ]] || die "APP_ROOT is not a git checkout: $APP_ROOT"
 [[ -f "$ENV_FILE" ]] || die "Environment file missing: $ENV_FILE"
@@ -68,23 +68,23 @@ info "Applying idempotent seed data (app.seed)"
 uv run python -m app.seed
 
 # 3. Frontend update & build
-info "Synchronizing frontend dependencies (npm ci)"
+info "Synchronizing frontend dependencies (pnpm install)"
 cd "$APP_ROOT/apps/web"
-npm ci
+pnpm install --frozen-lockfile
 
 if [[ "$SKIP_TESTS" != "1" ]]; then
   info "Running frontend lint (eslint)"
-  npm run lint
+  pnpm run lint
 
   info "Running frontend typecheck (tsc)"
-  npm run typecheck
+  pnpm run typecheck
 else
   info "Frontend tests skipped (SKIP_TESTS=1)"
 fi
 
-info "Building Next.js frontend (npm run build)"
+info "Building Next.js frontend (pnpm run build)"
 build_start=$(date +%s)
-npm run build
+pnpm run build
 ok "Frontend build finished in $(( $(date +%s) - build_start ))s"
 
 # 4. Restart systemd services
